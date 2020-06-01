@@ -622,7 +622,7 @@
 		};
 		
 	synaptics_dsx_ts@20 {					 
-		compatible = "synaptics_dsx";
+		compatible = "zinitix,ztw522";
 		reg = <0x20>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_i2c2_synaptics_dsx_io>;				  

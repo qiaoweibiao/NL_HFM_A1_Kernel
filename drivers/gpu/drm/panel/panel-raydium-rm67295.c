@@ -24,10 +24,19 @@
 
 
 /* Panel specific color-format bits */
-#define COL_FMT_16BPP 0x0E
-#define COL_FMT_18BBB 0x1E
-#define COL_FMT_18BPP 0x2E
-#define COL_FMT_24BPP 0x3E
+//#define COL_FMT_16BPP 0x0E
+//#define COL_FMT_18BBB 0x1E
+//#define COL_FMT_18BPP 0x2E
+//#define COL_FMT_24BPP 0x3E
+
+
+#define COL_FMT_16BPP 0x55
+#define COL_FMT_18BBB 0x66
+#define COL_FMT_18BPP 0x66
+#define COL_FMT_24BPP 0x77
+
+
+
 /* Write Manufacture Command Set Control */
 #define WRMAUCCTR 0xFE
 
@@ -205,9 +214,9 @@ struct rad_panel {
 static const struct drm_display_mode default_mode = {
 	.clock = 132000,
 	.hdisplay = 1920,
-	.hsync_start = 1920 + 2,
-	.hsync_end = 1920 + 2 + 2,
-	.htotal = 1920 + 2 + 2 + 2,
+	.hsync_start = 1920 + 3,
+	.hsync_end = 1920 + 3 + 2,
+	.htotal = 1920 + 3 + 2 + 3,
 	.vdisplay = 1280,
 	.vsync_start = 1280 + 4,
 	.vsync_end = 1280 + 4 + 4,
