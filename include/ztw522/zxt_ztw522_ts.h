@@ -599,7 +599,7 @@ struct zxt_ts_platform_data {
 #endif
 };
 
-struct ztw522_ts_info {
+struct   {
 	struct i2c_client			*client;
 	struct input_dev			*input_dev;
 #ifdef SUPPORTED_TOUCH_KEY

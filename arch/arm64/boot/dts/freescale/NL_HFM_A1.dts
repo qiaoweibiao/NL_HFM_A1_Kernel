@@ -91,7 +91,7 @@
 		reg_usdhc2_vmmc: regulator-usdhc2 {
 			compatible = "regulator-fixed";
 			regulator-name = "VSD_3V3";
-			regulator-min-microvolt = <3300000>;
+			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <3300000>;
 			gpio = <&gpio2 19 GPIO_ACTIVE_HIGH>;
 			off-on-delay = <20000>;
@@ -105,7 +105,21 @@
 			regulator-max-microvolt = <1800000>;
 			startup-delay-us = <300000>;
 		};
-		
+		reg_ztw522_avdd: regulator-ztw522 {
+			compatible = "regulator-fixed";
+			regulator-name = "avdd";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			startup-delay-us = <300000>;
+		};
+
+		reg_ztw522_vddo: regulator-ztw522_ts {
+			compatible = "regulator-fixed";
+			regulator-name = "vddo";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			startup-delay-us = <300000>;
+		};
 	};
 
 
@@ -155,7 +169,7 @@
 			>;
 		};
 
-		pinctrl_i2c2_synaptics_dsx_io: synaptics_dsx_iogrp {
+		pinctrl_i2c2_ztw522_io: ztw522_iogrp {
 			fsl,pins = <
 				MX8MM_IOMUXC_GPIO1_IO09_GPIO1_IO9		0x19	/* Touch int */
 			>;
@@ -626,9 +640,22 @@
 		compatible = "zinitix,ztw522_ts";
 		reg = <0x20>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_i2c2_synaptics_dsx_io>;
+		pinctrl-0 = <&pinctrl_i2c2_ztw522_io>;
 		interrupt-parent = <&gpio1>;
 		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
+		ztw522,irq-gpio = <&gpio1 9 0x00>;
+		ztw522,tsppwr_en = <0>;
+		ztw522,fw_name = "Z400F_ZI_1F.fw";
+		ztw522,x_resolution = <1280>;//480
+		ztw522,y_resolution = <1920>;//800
+		ztw522,model_name = "PRIDE_LTE";
+		ztw522,reg_boot_on = <0>;
+		ztw522,pat_function = <2>;
+		ztw522,afe_base = <0x600A>;
+		ztw522,mis_cal_check = "true";
+
+		avdd-supply = <&reg_ztw522_avdd>;
+		vddo-supply = <&reg_ztw522_vddo>;
 		status = "okay";
 		};	
 };
@@ -649,7 +676,8 @@
 	ak4497,i2c-gpio = <&gpio4 29 GPIO_ACTIVE_HIGH>;/*HLOAD/I2C = H I2C-bus Control Mode*/
 	ak4497,cad1-gpio = <&gpio4 28 GPIO_ACTIVE_LOW>; /*CAD1 L   i2c address of ak4497 */	   												  
 	AVDD-supply = <&reg_audio_board>;
-	DVDD-supply = <&reg_audio_board>;   
+	DVDD-supply = <&reg_audio_board>;  
+	
 	};							 
 };
 
