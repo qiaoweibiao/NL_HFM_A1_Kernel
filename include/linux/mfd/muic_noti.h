@@ -36,7 +36,6 @@ enum {
     MUIC_CABLE_TYPE_OTG_WITH_VBUS,
     MUIC_CABLE_TYPE_UNKNOWN_WITH_VBUS,
 };
-
 #ifdef CONFIG_MFD_SM5504
 extern int unregister_muic_notifier(struct notifier_block *nb);
 extern int register_muic_notifier(struct notifier_block *nb);

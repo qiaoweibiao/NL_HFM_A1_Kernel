@@ -15,7 +15,7 @@
 #elif defined(CONFIG_DRV_SAMSUNG)
 #include <linux/sec_class.h>
 #else
-//struct class *tsp_sec_class;
+struct class *tsp_sec_class;
 #endif
 
 #ifndef CONFIG_SEC_FACTORY

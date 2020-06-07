@@ -39,7 +39,7 @@
 #include <linux/wakelock.h>
 #include <soc/sprd/i2c-sprd.h>
 
-#if defined(CONFIG_TOUCHSCREEN_ZT7538_TS)
+#if defined(CONFIG_TOUCHSCREEN_ZTW522_TS)
 #include "zinitix_o7_ref.h"
 #endif
 
@@ -88,7 +88,7 @@ enum data_type {
 #define TSP_INIT_TEST_RATIO		100
 #define MAX_SUPPORTED_FINGER_NUM	2	/* max 10 */
 #define SUPPORTED_PALM_TOUCH		0
-#define USE_TSP_TA_CALLBACKS		1
+#define USE_TSP_TA_CALLBACKS		0//1
 #define PAT_CONTROL			1
 #define DEF_CODE_REJECT_FOR_ISR_OPT	0
 
