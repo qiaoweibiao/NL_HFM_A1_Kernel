@@ -620,9 +620,9 @@
 			};
 		
 		};
-		
-	synaptics_dsx_ts@20 {					 
-		compatible = "zinitix,ztw522";
+	/*	
+	synaptics_dsx_ts@20 {				 
+		compatible = "synaptics_dsx_ts";
 		reg = <0x20>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_i2c2_synaptics_dsx_io>;				  
@@ -630,7 +630,8 @@
 		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
 		synaptics,diagonal-rotation;
 		status = "okay";
-		};					   
+		};	
+	*/
 };
 
 
@@ -639,7 +640,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c3>;
 	status = "okay";
-	ak4497: ak4497@10 {/*ak4497@10*/
+	ak4497: ak4497@10 {/*ak4497@10默认地址0x11  实际0x10*/
 	compatible = "asahi-kasei,ak4497"; 
 	reg = <0x10>;
 	ak4497,pon-gpio = <&gpio1 6 GPIO_ACTIVE_HIGH>;/*power on H power supply L no power */

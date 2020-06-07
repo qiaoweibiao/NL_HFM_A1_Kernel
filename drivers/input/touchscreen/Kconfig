@@ -1247,16 +1247,16 @@ config TOUCHSCREEN_ZFORCE
 	  To compile this driver as a module, choose M here: the
 	  module will be called zforce_ts.
 	  
-config TOUCHSCREEN_DUAL_FOLDABLE
-	tristate "Dual TSP IC for Foldable"
+config TOUCHSCREEN_ZINITIX_ZTW522
+	tristate "ZINITIX ztw522 I2C Touchscreen"
 	depends on I2C
 	help
-	  This enables support for Dual TSP.
-
+	  Say Y here if you have the ZINITIX 7538 I2C touchscreen
+	  connected to your system.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here:
+	  the module will be called Zinitix.
 source "drivers/input/touchscreen/zinitix/ztw522/Kconfig"
-
-
-
 
 config TOUCHSCREEN_COLIBRI_VF50
 	tristate "Toradex Colibri on board touchscreen driver"

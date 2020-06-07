@@ -1,14 +1,21 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-#ifndef _LINUX_BUILD_BUG_H
-#define _LINUX_BUILD_BUG_H
+#ifndef _LINUX_BUG_H
+#define _LINUX_BUG_H
 
+#include <asm/bug.h>
 #include <linux/compiler.h>
 
+enum bug_trap_type {
+	BUG_TRAP_TYPE_NONE = 0,
+	BUG_TRAP_TYPE_WARN = 1,
+	BUG_TRAP_TYPE_BUG = 2,
+};
+
+struct pt_regs;
+
 #ifdef __CHECKER__
-#define __BUILD_BUG_ON_NOT_POWER_OF_2(n) (0)
 #define BUILD_BUG_ON_NOT_POWER_OF_2(n) (0)
 #define BUILD_BUG_ON_ZERO(e) (0)
-#define BUILD_BUG_ON_NULL(e) ((void *)0)
+#define BUILD_BUG_ON_NULL(e) ((void*)0)
 #define BUILD_BUG_ON_INVALID(e) (0)
 #define BUILD_BUG_ON_MSG(cond, msg) (0)
 #define BUILD_BUG_ON(condition) (0)
@@ -16,19 +23,15 @@
 #else /* __CHECKER__ */
 
 /* Force a compilation error if a constant expression is not a power of 2 */
-#define __BUILD_BUG_ON_NOT_POWER_OF_2(n)	\
-	BUILD_BUG_ON(((n) & ((n) - 1)) != 0)
 #define BUILD_BUG_ON_NOT_POWER_OF_2(n)			\
 	BUILD_BUG_ON((n) == 0 || (((n) & ((n) - 1)) != 0))
 
-/*
- * Force a compilation error if condition is true, but also produce a
- * result (of value 0 and type size_t), so the expression can be used
- * e.g. in a structure initializer (or where-ever else comma expressions
- * aren't permitted).
- */
-#define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:(-!!(e)); }))
-#define BUILD_BUG_ON_NULL(e) ((void *)sizeof(struct { int:(-!!(e)); }))
+/* Force a compilation error if condition is true, but also produce a
+   result (of value 0 and type size_t), so the expression can be used
+   e.g. in a structure initializer (or where-ever else comma expressions
+   aren't permitted). */
+#define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
+#define BUILD_BUG_ON_NULL(e) ((void *)sizeof(struct { int:-!!(e); }))
 
 /*
  * BUILD_BUG_ON_INVALID() permits the compiler to check the validity of the
@@ -82,4 +85,28 @@
 
 #endif	/* __CHECKER__ */
 
-#endif	/* _LINUX_BUILD_BUG_H */
+#ifdef CONFIG_GENERIC_BUG
+#include <asm-generic/bug.h>
+
+static inline int is_warning_bug(const struct bug_entry *bug)
+{
+	return bug->flags & BUGFLAG_WARNING;
+}
+
+const struct bug_entry *find_bug(unsigned long bugaddr);
+
+enum bug_trap_type report_bug(unsigned long bug_addr, struct pt_regs *regs);
+
+/* These are defined by the architecture */
+int is_valid_bugaddr(unsigned long addr);
+
+#else	/* !CONFIG_GENERIC_BUG */
+
+static inline enum bug_trap_type report_bug(unsigned long bug_addr,
+					    struct pt_regs *regs)
+{
+	return BUG_TRAP_TYPE_BUG;
+}
+
+#endif	/* CONFIG_GENERIC_BUG */
+#endif	/* _LINUX_BUG_H */

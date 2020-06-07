@@ -3148,7 +3148,6 @@ static ssize_t synaptics_rmi4_f01_product_id_show(struct device *dev,
 
 static DEVICE_ATTR(tp_firmware_version, 0664, synaptics_rmi4_f34_configid_show, synaptics_rmi4_store_error);
 static DEVICE_ATTR(product_id, 0664, synaptics_rmi4_f01_product_id_show, synaptics_rmi4_store_error);
-
 static struct attribute *synaptics_rmi4_attrs[] = {
 	attrify(tp_firmware_version),
 	attrify(product_id),
