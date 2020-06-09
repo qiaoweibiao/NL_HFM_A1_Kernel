@@ -1,0 +1,12 @@
+#
+# Zinitix Touchscreen driver configuration
+#
+
+config CONFIG_TOUCHSCREEN_ZT7548_TS
+	bool "ZINITIX ZT7548_TS touchscreen driver"
+	depends on I2C
+	default y
+	help
+	  Say Y here if you have a ZINITIX ZT7548 touchscreen.
+	  If unsure, say N.
+

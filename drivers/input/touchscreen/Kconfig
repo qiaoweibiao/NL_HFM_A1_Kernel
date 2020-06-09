@@ -1258,6 +1258,15 @@ config TOUCHSCREEN_ZINITIX_ZTW522
 	  the module will be called Zinitix.
 source "drivers/input/touchscreen/zinitix/ztw522/Kconfig"
 
+config TOUCHSCREEN_ZT7548_TS
+	bool "ZINITIX ZT7548_TS touchscreen driver"
+	depends on I2C
+	help
+	  Say Y here if you have a ZINITIX ZT7548 touchscreen.
+	  If unsure, say N.
+
+source "drivers/input/touchscreen/zinitix/zt7548/Kconfig"
+
 config TOUCHSCREEN_COLIBRI_VF50
 	tristate "Toradex Colibri on board touchscreen driver"
 	depends on IIO && VF610_ADC

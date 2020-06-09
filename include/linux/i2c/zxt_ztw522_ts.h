@@ -63,7 +63,7 @@ enum data_type {
 };
 
 //#define SUPPORT_TOUCH_BOOSTER
-#define SUPPORTED_TOUCH_KEY
+#define SUPPORTED_TOUCH_KEY 	1
 //#define SUPPORTED_KEY_LED
 
 /* #define REPORT_2D_Z */
@@ -80,9 +80,9 @@ enum data_type {
 #ifdef CONFIG_TIZEN_SEC_KERNEL_ENG
 #define ZINITIX_FILE_DEBUG		1
 #endif
-#define TOUCH_POINT_MODE		0
-#define ZINITIX_MISC_DEBUG		0
-#define CHECK_HWID			0
+#define TOUCH_POINT_MODE		1//0
+#define ZINITIX_MISC_DEBUG		0//0
+#define CHECK_HWID				1
 #define ZINITIX_DEBUG			0
 #define ZINITIX_I2C_CHECKSUM		0
 #define TSP_INIT_TEST_RATIO		100
@@ -111,7 +111,7 @@ enum data_type {
 /* resolution offset */
 #define ABS_PT_OFFSET			(-1)
 #define TOUCH_FORCE_UPGRADE		1
-#define USE_CHECKSUM			1
+#define USE_CHECKSUM			0//0
 #define CHIP_OFF_DELAY			50	/*ms*/
 #define DELAY_FOR_SIGNAL_DELAY	30	/*us*/
 #define DELAY_FOR_TRANSCATION		50
