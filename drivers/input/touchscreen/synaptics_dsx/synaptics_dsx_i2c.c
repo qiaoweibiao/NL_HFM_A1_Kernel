@@ -3191,7 +3191,7 @@ static int synaptics_rmi4_probe(struct i2c_client *client,
 	}
 
 #ifdef USE_I2C_DMA
-	wDMABuf_va = (unsigned char *)dma_zalloc_coherent(&client->dev, WRITE_SIZE_LIMIT,
+	wDMABuf_va = (unsigned char *)      (&client->dev, WRITE_SIZE_LIMIT,
 				 &wDMABuf_pa, GFP_KERNEL);
 	if (!wDMABuf_va) {
 		dev_err(&client->dev, "Allocate DMA I2C Buffer failed, exit\n");

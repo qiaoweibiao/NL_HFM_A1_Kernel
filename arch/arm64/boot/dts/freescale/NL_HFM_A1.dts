@@ -91,7 +91,7 @@
 		reg_usdhc2_vmmc: regulator-usdhc2 {
 			compatible = "regulator-fixed";
 			regulator-name = "VSD_3V3";
-			regulator-min-microvolt = <1800000>;
+			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
 			gpio = <&gpio2 19 GPIO_ACTIVE_HIGH>;
 			off-on-delay = <20000>;
@@ -105,21 +105,7 @@
 			regulator-max-microvolt = <1800000>;
 			startup-delay-us = <300000>;
 		};
-		reg_ztw522_avdd: regulator-ztw522 {
-			compatible = "regulator-fixed";
-			regulator-name = "avdd";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			startup-delay-us = <300000>;
-		};
-
-		reg_ztw522_vddo: regulator-ztw522_ts {
-			compatible = "regulator-fixed";
-			regulator-name = "vddo";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			startup-delay-us = <300000>;
-		};
+		
 	};
 
 
@@ -174,8 +160,6 @@
 				MX8MM_IOMUXC_GPIO1_IO10_GPIO1_IO10		0x19	/* Touch int */
 			>;
 		};
-
-
 
 		pinctrl_flexspi0: flexspi0grp {
 			fsl,pins = <
@@ -634,22 +618,19 @@
 				remote-endpoint = <&dsim_to_adv7535>;
 				};
 			};
-		
 		};
-		
-
 	zt7548_ts@20 {
-		compatible = "zinitix,zt7548_ts";
+		compatible = "Zinitix,zt7548_ts";
+		zt7548,model_name = "zt7548";
 		reg = <0x20>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_i2c2_synaptics_dsx_io>;
-		interrupt-parent = <&gpio1>;
-		interrupts = <10 IRQ_TYPE_LEVEL_LOW>;
+		zinitix,irq-gpio = <&gpio1 10 IRQ_TYPE_LEVEL_LOW>;
+		zt7548,x_resolution = <720>;
+		zt7548,y_resolution = <1280>;
 		synaptics,diagonal-rotation;
 		status = "okay";
-
-
-		};	
+	};				   
 };
 
 
@@ -658,7 +639,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c3>;
 	status = "okay";
-	ak4497: ak4497@10 {/*ak4497@10默认地址0x11  实际0x10*/
+	ak4497: ak4497@10 {/*ak4497@10*/
 	compatible = "asahi-kasei,ak4497"; 
 	reg = <0x10>;
 	ak4497,pon-gpio = <&gpio1 6 GPIO_ACTIVE_HIGH>;/*power on H power supply L no power */
@@ -668,8 +649,7 @@
 	ak4497,i2c-gpio = <&gpio4 29 GPIO_ACTIVE_HIGH>;/*HLOAD/I2C = H I2C-bus Control Mode*/
 	ak4497,cad1-gpio = <&gpio4 28 GPIO_ACTIVE_LOW>; /*CAD1 L   i2c address of ak4497 */	   												  
 	AVDD-supply = <&reg_audio_board>;
-	DVDD-supply = <&reg_audio_board>;  
-	
+	DVDD-supply = <&reg_audio_board>;   
 	};							 
 };
 

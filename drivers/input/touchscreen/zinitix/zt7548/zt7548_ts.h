@@ -672,3 +672,4 @@ static s32 write_reg(struct i2c_client *client, u16 reg, u16 value);
 static s32 write_cmd(struct i2c_client *client, u16 reg);
 static bool ts_set_touchmode(u16 value);
 static s32 read_data(struct i2c_client *client, u16 reg, u8 *values, u16 length);
+
