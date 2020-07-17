@@ -206,8 +206,8 @@
 #define PLLCTRL_PLLEN			BIT(23)
 #define PLLCTRL_SET_PMS(x)		REG_PUT(x, 19,  1)
    #define PLLCTRL_SET_P(x)		REG_PUT(x, 18, 13)
-   #define PLLCTRL_SET_M(x)		REG_PUT(x, 12,  3)
-   #define PLLCTRL_SET_S(x)		REG_PUT(x,  2,  0)
+   #define PLLCTRL_SET_M(x)		REG_PUT(x, 12,  4)
+   #define PLLCTRL_SET_S(x)		REG_PUT(x,  2,  1)
 
 #define PHYTIMING_SET_M_TLPXCTL(x)	REG_PUT(x, 15,  8)
 #define PHYTIMING_SET_M_THSEXITCTL(x)	REG_PUT(x,  7,  0)
@@ -1137,7 +1137,10 @@ int sec_mipi_dsim_check_pll_out(void *driver_private,
 	dsim->pix_clk = DIV_ROUND_UP_ULL(pix_clk, 1000);
 	dsim->bit_clk = DIV_ROUND_UP_ULL(bit_clk, 1000);
 
-	dsim->pms = 0x4210;
+	dsim->pms = 
+        PLLCTRL_SET_P(4) |//4倍
+	    PLLCTRL_SET_M(28) |//83倍369,168
+	    PLLCTRL_SET_S(0);//0=1;1=2;2=4;3=8  公式是 PHY_REF_CLK/P*M/S           PHY_REF_CLK =    27000
 	dsim->hpar = NULL;
 	if (dsim->panel)
 		return 0;

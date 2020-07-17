@@ -24,14 +24,14 @@
 
 
 /* Panel specific color-format bits */
-//#define COL_FMT_16BPP 0x0E
-//#define COL_FMT_18BBB 0x1E
-//#define COL_FMT_18BPP 0x2E
-//#define COL_FMT_24BPP 0x3E
+							
+							
+							
+							
 
 
 #define COL_FMT_16BPP 0x55
-#define COL_FMT_18BBB 0x66
+						  
 #define COL_FMT_18BPP 0x66
 #define COL_FMT_24BPP 0x77
 
@@ -57,135 +57,135 @@ struct cmd_set_entry {
  * We received them from vendor, so just use them as is.
  */
 static const struct cmd_set_entry manufacturer_cmd_set[] = {
-	{0xFE, 1, {0x04}},//Manufacture Command Set Page3 ( CMD2 P3)
-	{0x01, 1, {0x08}},//Soft reset  
-	{0x0e, 1, {0x10}},//Get signal mode   
-	{0x0A, 1, {0xE6}},//Get power mode 
-	{0x0B, 1, {0x8C}},//Get address mode  
-	{0x0D, 1, {0xA0}},//Get display mode  
-	{0x0F, 1, {0x40}},//Get diagnostic result
-	{0x16, 1, {0x19}},// 
-	{0x29, 1, {0x93}},//Set display on  
-	{0x2A, 1, {0x93}},//
-	{0x2F, 1, {0x02}},//
-	{0x31, 1, {0x02}},//
-	{0x33, 1, {0x05}},//
-	{0x37, 1, {0x2F}},//
-	{0x38, 1, {0x2F}},//Exit idle mode 
-	{0x3A, 1, {0x1E}},//Set pixel format  
-	{0x3B, 1, {0x1E}},//
-	{0x3D, 1, {0x1D}},//
-	{0x3F, 1, {0x80}},//
-	{0x40, 1, {0x48}},//
-	{0x41, 1, {0xE0}},//
-	{0x4F, 1, {0x2F}},//Set deep standby mode
-	{0x50, 1, {0x1e}},//
-	{0x51, 1, {0x0A}},//Write display brightness
-	{0xE2, 1, {0x00}},//
-	{0xFE, 1, {0x07}},//Write CMD page switch  0x01 ~ 0x05  no 0x07
-	{0x03, 1, {0x40}},//
-	{0x05, 1, {0x00}},//Get number of errors on DSI
-	{0x07, 1, {0x1E}},//
-	{0x5B, 1, {0x85}},//Read CE1  
-	{0xFE, 1, {0x06}},//Write CMD page switch  0x01 ~ 0x05  no 0x06
-	{0x00, 1, {0xEC}},// Nop  
-	{0x05, 1, {0x08}},//Get number of errors on DSI 
-	{0x07, 1, {0xE2}},//
-	{0x08, 1, {0xEC}},// 
-	{0x0D, 1, {0x02}},//Get display mode  
-	{0x0F, 1, {0xE2}},//Get diagnostic result  
-	{0x32, 1, {0xEC}},//
-	{0x37, 1, {0x05}},//
-	{0x39, 1, {0xA0}},//Enter idle mode  
-	{0x3A, 1, {0xEC}},//Set pixel format   
-	{0x41, 1, {0x04}},//
-	{0x43, 1, {0xA0}},//
-	{0x44, 1, {0xEC}},//Set tear scan line
-	{0x49, 1, {0x08}},//
-	{0x4B, 1, {0xE2}},//
-	{0x4C, 1, {0xEC}},//  
-	{0x51, 1, {0x02}},//Write display brightness
-	{0x53, 1, {0xE2}},//Write control display  
-	{0x75, 1, {0xEC}},//  
-	{0x7A, 1, {0x05}},//
-	{0x7C, 1, {0xA0}},//
-	{0x7D, 1, {0xEC}},//
-	{0x82, 1, {0x04}},//
-	{0x84, 1, {0xA0}},//
-	{0x85, 1, {0xEC}},//
-	{0x86, 1, {0x0F}},//
-	{0x87, 1, {0xFF}},//
-	{0x88, 1, {0x00}},//
-	{0x8A, 1, {0x02}},//
-	{0x8C, 1, {0xA0}},//
-	{0x8D, 1, {0xEA}},//
-	{0x8E, 1, {0x0F}},//
-	{0x8F, 1, {0xFF}},//
-	{0x90, 1, {0x06}},//
-	{0x91, 1, {0x00}},//       
-	{0x92, 1, {0x05}},//
-	{0x93, 1, {0xF0}},//      
-	{0x94, 1, {0x28}},//
-	{0x95, 1, {0xEC}},//
-	{0x96, 1, {0x0F}},//
-	{0x97, 1, {0xFF}},//
-	{0x98, 1, {0x00}},//
-	{0x9A, 1, {0x02}},//
-	{0x9C, 1, {0xA0}},//
-	{0xAC, 1, {0x04}},//
-	{0xB1, 1, {0x12}},//
+	{0xFE, 1, 0x04},//Manufacture Command Set Page3 ( CMD2 P3)
+	{0x01, 1, 0x08},//Soft reset  
+	{0x0e, 1, 0x10},//Get signal mode   
+	{0x0A, 1, 0xE6},//Get power mode 
+	{0x0B, 1, 0x8C},//Get address mode  
+	{0x0D, 1, 0xA0},//Get display mode  
+	{0x0F, 1, 0x40},//Get diagnostic result
+	{0x16, 1, 0x19},// 
+	{0x29, 1, 0x93},//Set display on  
+	{0x2A, 1, 0x93},//
+	{0x2F, 1, 0x02},//
+	{0x31, 1, 0x02},//
+	{0x33, 1, 0x05},//
+	{0x37, 1, 0x2F},//
+	{0x38, 1, 0x2F},//Exit idle mode 
+	{0x3A, 1, 0x1E},//Set pixel format  
+	{0x3B, 1, 0x1E},//
+	{0x3D, 1, 0x1D},//
+	{0x3F, 1, 0x80},//
+	{0x40, 1, 0x48},//
+	{0x41, 1, 0xE0},//
+	{0x4F, 1, 0x2F},//Set deep standby mode
+	{0x50, 1, 0x1e},//
+	{0x51, 1, 0x0A},//Write display brightness
+	{0xE2, 1, 0x00},//
+	{0xFE, 1, 0x07},//Write CMD page switch  0x01 ~ 0x05  no 0x07
+	{0x03, 1, 0x40},//
+	{0x05, 1, 0x00},//Get number of errors on DSI
+	{0x07, 1, 0x1E},//
+	{0x5B, 1, 0x85},//Read CE1  
+	{0xFE, 1, 0x06},//Write CMD page switch  0x01 ~ 0x05  no 0x06
+	{0x00, 1, 0xEC},// Nop  
+	{0x05, 1, 0x08},//Get number of errors on DSI 
+	{0x07, 1, 0xE2},//
+	{0x08, 1, 0xEC},// 
+	{0x0D, 1, 0x02},//Get display mode  
+	{0x0F, 1, 0xE2},//Get diagnostic result  
+	{0x32, 1, 0xEC},//
+	{0x37, 1, 0x05},//
+	{0x39, 1, 0xA0},//Enter idle mode  
+	{0x3A, 1, 0xEC},//Set pixel format   
+	{0x41, 1, 0x04},//
+	{0x43, 1, 0xA0},//
+	{0x44, 1, 0xEC},//Set tear scan line
+	{0x49, 1, 0x08},//
+	{0x4B, 1, 0xE2},//
+	{0x4C, 1, 0xEC},//  
+	{0x51, 1, 0x02},//Write display brightness
+	{0x53, 1, 0xE2},//Write control display  
+	{0x75, 1, 0xEC},//  
+	{0x7A, 1, 0x05},//
+	{0x7C, 1, 0xA0},//
+	{0x7D, 1, 0xEC},//
+	{0x82, 1, 0x04},//
+	{0x84, 1, 0xA0},//
+	{0x85, 1, 0xEC},//
+	{0x86, 1, 0x0F},//
+	{0x87, 1, 0xFF},//
+	{0x88, 1, 0x00},//
+	{0x8A, 1, 0x02},//
+	{0x8C, 1, 0xA0},//
+	{0x8D, 1, 0xEA},//
+	{0x8E, 1, 0x0F},//
+	{0x8F, 1, 0xFF},//
+	{0x90, 1, 0x06},//
+	{0x91, 1, 0x00},//       
+	{0x92, 1, 0x05},//
+	{0x93, 1, 0xF0},//      
+	{0x94, 1, 0x28},//
+	{0x95, 1, 0xEC},//
+	{0x96, 1, 0x0F},//
+	{0x97, 1, 0xFF},//
+	{0x98, 1, 0x00},//
+	{0x9A, 1, 0x02},//
+	{0x9C, 1, 0xA0},//
+	{0xAC, 1, 0x04},//
+	{0xB1, 1, 0x12},//
 	 
-	{0xB2, 1, {0x17}},//
-	{0xB3, 1, {0x17}},//
-	{0xB4, 1, {0x17}},//
-	{0xB5, 1, {0x17}},//
-	{0xB6, 1, {0x11}},//
-	{0xB7, 1, {0x08}},//
-	{0xB8, 1, {0x09}},//
-	{0xB9, 1, {0x06}},//
-	{0xBA, 1, {0x07}},//
-	{0xBB, 1, {0x17}},//
-	{0xBC, 1, {0x17}},//
-	{0xBD, 1, {0x17}},//
-	{0xBE, 1, {0x17}},//
-	{0xBF, 1, {0x17}},//
-	{0xC0, 1, {0x17}},//
-	{0xC1, 1, {0x17}},//
-	{0xC2, 1, {0x17}},//
-	{0xC3, 1, {0x17}},//
-	{0xC4, 1, {0x0F}},//
-	{0xC5, 1, {0x0E}},//
-	{0xC6, 1, {0x00}},//
-	{0xC7, 1, {0x01}},//
-	{0xC8, 1, {0x10}},//
-	{0xfe, 1, {0x0e}},//
-	{0x12, 1, {0x37}},//
-	{0xFE, 1, {0x0A}}, //
-	{0x25, 1, {0x66}},//
-	{0xFE, 1, {0x0D}},//
-	{0x72, 1, {0x09}},//
-	/* shaohanyue, 20160818 modified for lcm pcd */
-	{0xFE, 1, {0x0D}},//
-	{0x03, 1, {0x20}},//
-	/* shaohanyue, 20160818 modified for lcm pcd */
-	/*shaohanyue.wt 2016.09.05 ESD fail  start*/
-	{0x20, 1, {0x00}},//Exit invert mode  
-	{0x21, 1, {0x00}},//Enter invert mode  
-	{0x1D, 1, {0x89}},//
-	/*shaohanyue.wt 2016.09.05 ESD fail  end*/
-	{0xFE, 1, {0x00}},
-	{0x51, 1, {0xff}},//Write display brightness  
-	{0x35, 1, {0x00}},//Set tear on  
-	
-	//{0xFE, 1, {0x00}},//白屏测试 像素全开
-	//{0x23, 1, {0x00}},//白屏测试 像素全开
+	{0xB2, 1, 0x17},//
+	{0xB3, 1, 0x17},//
+	{0xB4, 1, 0x17},//
+	{0xB5, 1, 0x17},//
+	{0xB6, 1, 0x11},//
+	{0xB7, 1, 0x08},//
+	{0xB8, 1, 0x09},//
+	{0xB9, 1, 0x06},//
+	{0xBA, 1, 0x07},//
+	{0xBB, 1, 0x17},//
+	{0xBC, 1, 0x17},//
+	{0xBD, 1, 0x17},//
+	{0xBE, 1, 0x17},//
+	{0xBF, 1, 0x17},//
+	{0xC0, 1, 0x17},//
+	{0xC1, 1, 0x17},//
+	{0xC2, 1, 0x17},//
+	{0xC3, 1, 0x17},//
+	{0xC4, 1, 0x0F},//
+	{0xC5, 1, 0x0E},//
+	{0xC6, 1, 0x00},//
+	{0xC7, 1, 0x01},//
+	{0xC8, 1, 0x10},//
+	{0xfe, 1, 0x0e},//
+	{0x12, 1, 0x37},//
+	{0xFE, 1, 0x0A}, //
+	{0x25, 1, 0x66},//
+	{0xFE, 1, 0x0D},//
+	{0x72, 1, 0x09},//
+	/* shaohanue, 0160818 modified for lcm pcd */
+	{0xFE, 1, 0x0D},//
+	{0x03, 1, 0x20},//
+	/* shaohanue, 0160818 modified for lcm pcd */
+	/*shaohanye.wt2016.09.05 ESD fail  start*/
+	{0x20, 1, 0x00},//Exit invert mode  
+	{0x21, 1, 0x00},//Enter invert mode  
+	{0x1D, 1, 0x89},//
+	/*shaohanye.wt2016.09.05 ESD fail  end*/
+	{0xFE, 1, 0x00},
+	{0x51, 1, 0xff},//Write display brightness  
+	{0x35, 1, 0x00},//Set tear on  
+
+												
+	{0x23, 1, 0x00},//白屏测试 像素全开
 
 
-	{0x11, 1, {0x00}},//Exit sleep mode  
-	{REGFLAG_DELAY, 120, {0x00}},
-	{0x29, 1, {0x00}},//
-	{REGFLAG_DELAY, 20, {0x00}},
-	{REGFLAG_END_OF_TABLE, 0x00, {0x00}},
+	{0x11, 1, 0x00},//Exit sleep mode  
+	{REGFLAG_DELAY, 120, 0x00},
+	{0x29, 1, 0x00},//
+	{REGFLAG_DELAY, 20, 0x00},
+	{REGFLAG_END_OF_TABLE, 0x00, 0x00},
 };
 
 static const u32 rad_bus_formats[] = {
@@ -212,36 +212,39 @@ struct rad_panel {
 };
 
 static const struct drm_display_mode default_mode = {
-	.clock = 132000,
-	.hdisplay = 1920,
-	.hsync_start = 1920 + 3,
-	.hsync_end = 1920 + 3 + 2,
-	.htotal = 1920 + 3 + 2 + 3,
+	 
+	.clock = 56000,
+	.hdisplay = 720,
+	.hsync_start = 720 + 2,
+	.hsync_end = 720 + 2 + 2,
+	.htotal = 720 + 2 + 2 + 2,//794
 	.vdisplay = 1280,
-	.vsync_start = 1280 + 4,
-	.vsync_end = 1280 + 4 + 4,
-	.vtotal = 1280 + 4 + 4 + 4,
-	.vrefresh =60,//没起作用
-	.width_mm = 61,
-	.height_mm = 110,
-	.flags = DRM_MODE_FLAG_NHSYNC |
-		 DRM_MODE_FLAG_NVSYNC,
-
-#if 0
-	.clock = 90000,
-	.hdisplay = 1920,
-	.hsync_start = 1920 + 2,
-	.hsync_end = 1920 + 2 + 2,
-	.htotal = 1920 + 2 + 2 + 2,
-	.vdisplay = 1280,
-	.vsync_start = 1280 + 4,
-	.vsync_end = 1280 + 4 + 4,
-	.vtotal = 1280 + 4 + 4 + 4,
+	.vsync_start = 1280 + 8,
+	.vsync_end = 1280 + 8 + 4,
+	.vtotal = 1280 + 8 + 4 + 16,//1308
 	.vrefresh =60,
 	.width_mm = 61,
 	.height_mm = 110,
 	.flags = DRM_MODE_FLAG_NHSYNC |
 		 DRM_MODE_FLAG_NVSYNC,
+	  
+
+#if 0
+	.pixelclock = { 31000000, 90000000,90000000},
+	.hactive = { 720, 720, 720 },
+	.hfront_porch = { 26, 26, 26 },
+	.hsync_len = { 2, 2, 2 },
+	.hback_porch = { 36, 36, 36 },
+	.vactive = { 1280, 1280, 1280 },
+	.vfront_porch = { 8, 8, 8 },
+	.vsync_len = { 4, 4, 4 },
+	.vback_porch = {16, 16, 16 },
+	
+	.flags = DISPLAY_FLAGS_HSYNC_LOW |
+		 DISPLAY_FLAGS_VSYNC_LOW |//LOW
+		 DISPLAY_FLAGS_DE_LOW |
+		 DISPLAY_FLAGS_PIXDATA_NEGEDGE,
+
 
 #endif
 
@@ -263,9 +266,9 @@ static int rad_panel_push_cmd_list(struct mipi_dsi_device *dsi)
 
 	for (i = 0; i < count; i++) {
 
-		const struct cmd_set_entry *entry = &manufacturer_cmd_set[i];
-		u8 buffer[3] = { entry->cmd, entry->size,entry->param };
-	
+		const struct cmd_set_entry *entry = &manufacturer_cmd_set[i];	
+														  
+ 
 		switch (entry->cmd){
 
 			case REGFLAG_DELAY :
@@ -290,19 +293,19 @@ static int color_format_from_dsi_format(enum mipi_dsi_pixel_format format)
 	switch (format) {
 	case MIPI_DSI_FMT_RGB565:
 		return COL_FMT_16BPP;
-	
+ 
 	case MIPI_DSI_FMT_RGB666:
-		return COL_FMT_18BBB;
-		
+					   
+  
 	case MIPI_DSI_FMT_RGB666_PACKED:
 		return COL_FMT_18BPP;
-		
+  
 	case MIPI_DSI_FMT_RGB888:
 		return COL_FMT_24BPP;
-		
+  
 	default:
 		return COL_FMT_24BPP; /* for backward compatibility */
-		
+  
 	}
 };
 
@@ -374,8 +377,8 @@ static int rad_panel_enable(struct drm_panel *panel)
 		DRM_DEV_ERROR(dev, "Failed to send MCS (%d)\n", ret);
 		goto fail;
 	}
-	
-#if 1
+ 
+	 
 
 	/* Select User Command Set table (CMD1) */
 	ret = mipi_dsi_generic_write(dsi, (u8[]){ WRMAUCCTR, 0x00 }, 2);
@@ -398,7 +401,7 @@ static int rad_panel_enable(struct drm_panel *panel)
 		goto fail;
 	}
 	/* Set tear ON */
-	ret = mipi_dsi_dcs_set_tear_on(dsi, MIPI_DSI_DCS_TEAR_MODE_VHBLANK);//MIPI_DSI_DCS_TEAR_MODE_VHBLANK MIPI_DSI_DCS_TEAR_MODE_VBLANK
+	ret = mipi_dsi_dcs_set_tear_on(dsi, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
 	if (ret < 0) {
 		DRM_DEV_ERROR(dev, "Failed to set tear ON (%d)\n", ret);
 		goto fail;
@@ -423,7 +426,7 @@ static int rad_panel_enable(struct drm_panel *panel)
 		DRM_DEV_ERROR(dev, "Failed to exit sleep mode (%d)\n", ret);
 		goto fail;
 	}
-#endif
+
 	usleep_range(5000, 7000);
 
 	ret = mipi_dsi_dcs_set_display_on(dsi);
@@ -458,6 +461,13 @@ static int rad_panel_disable(struct drm_panel *panel)
 
 	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
 
+	rad->backlight->props.power = FB_BLANK_UNBLANK;
+	backlight_update_status(rad->backlight);
+
+	rad->enabled = false;
+
+	usleep_range(10000, 12000);
+
 	ret = mipi_dsi_dcs_set_display_off(dsi);
 	if (ret < 0) {
 		DRM_DEV_ERROR(dev, "Failed to set display OFF (%d)\n", ret);
@@ -471,8 +481,8 @@ static int rad_panel_disable(struct drm_panel *panel)
 		DRM_DEV_ERROR(dev, "Failed to enter sleep mode (%d)\n", ret);
 		return ret;
 	}
-	rad->backlight->props.power = FB_BLANK_POWERDOWN;
-	backlight_update_status(rad->backlight);
+												  
+										 
 
 	rad->enabled = false;
 
@@ -713,4 +723,5 @@ module_mipi_dsi_driver(rad_panel_driver);
 MODULE_AUTHOR("Robert Chiras <robert.chiras@nxp.com>");
 MODULE_DESCRIPTION("DRM Driver for Raydium RM67295 MIPI DSI panel");
 MODULE_LICENSE("GPL v2");
+
 

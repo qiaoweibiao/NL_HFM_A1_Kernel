@@ -71,8 +71,6 @@ enum data_type {
 
 
 
-#define KEY_RECENT  253 //qwb add
-#define KEY_BACK	254 //qwb add
 
 #define CONFIG_SAMSUNG_LPM_MODE 0
 
@@ -96,7 +94,7 @@ enum data_type {
 #define MAX_SUPPORTED_BUTTON_NUM	2	/* max 8 */
 #define SUPPORTED_BUTTON_NUM		2
 
-#define SUPPORTED_PALM_TOUCH            1
+#define SUPPORTED_PALM_TOUCH            0
 
 /* resolution offset */
 #define ABS_PT_OFFSET			(-1)
@@ -597,7 +595,6 @@ static int m_ts_debug_mode = ZINITIX_DEBUG;
 #define COVER_OPEN 0
 #define COVER_CLOSED 3
 
-static int g_cover_state;
 #endif
 
 extern struct class *sec_class;
@@ -621,33 +618,7 @@ static void esd_timeout_handler(unsigned long data);
 #endif
 
 #ifdef SEC_FACTORY_TEST
-static void fw_update(void *device_data);
-static void get_fw_ver_bin(void *device_data);
-static void get_fw_ver_ic(void *device_data);
-static void get_threshold(void *device_data);
-static void get_chip_vendor(void *device_data);
-static void get_chip_name(void *device_data);
-static void get_x_num(void *device_data);
-static void get_y_num(void *device_data);
-static void not_support_cmd(void *device_data);
-
 /* Vendor dependant command */
-static void run_dnd_read(void *device_data);
-static void get_dnd(void *device_data);
-static void get_dnd_all_data(void *device_data);
-static void run_dnd_v_gap_read(void *device_data);
-static void get_dnd_v_gap(void * device_data);
-static void run_dnd_h_gap_read(void *device_data);
-static void get_dnd_h_gap(void * device_data);
-static void run_hfdnd_read(void *device_data);
-static void get_hfdnd(void * device_data);
-static void get_hfdnd_all_data(void *device_data);
-static void run_hfdnd_v_gap_read(void *device_data);
-static void get_hfdnd_v_gap(void * device_data);
-static void run_hfdnd_h_gap_read(void *device_data);
-static void get_hfdnd_h_gap(void * device_data);
-static void run_delta_read(void *device_data);
-static void get_delta(void *device_data);
 #if defined(CONFIG_TOUCHSCREEN_ZT7548_TS)
 static void run_rxshort_read(void *device_data);
 static void get_rxshort(void *device_data);
@@ -656,20 +627,12 @@ static void get_txshort(void *device_data);
 static void run_reference_read(void * device_data);
 static void get_reference(void *device_data);
 #endif
-static void get_delta_all_data(void *device_data);
-static void dead_zone_enable(void *device_data);
-static void clear_cover_mode(void *device_data);
-static void clear_reference_data(void *device_data);
-static void run_ref_calibration(void *device_data);
 #if defined(CONFIG_TOUCHSCREEN_ZT7538_TS)
 static void hfdnd_spec_adjust(void *device_data);
 #endif
 #endif
 
-static int ts_upgrade_sequence(const u8 *firmware_data);
 static bool ts_hw_calibration(struct zt7548_ts_info *info);
 static s32 write_reg(struct i2c_client *client, u16 reg, u16 value);
 static s32 write_cmd(struct i2c_client *client, u16 reg);
-static bool ts_set_touchmode(u16 value);
 static s32 read_data(struct i2c_client *client, u16 reg, u8 *values, u16 length);
-
