@@ -626,7 +626,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_i2c2_synaptics_dsx_io>;
 		zinitix,irq-gpio = <&gpio1 10 IRQ_TYPE_LEVEL_LOW>;
-		zt7548,x_resolution = <1920>;
+		zt7548,x_resolution = <720>;
 		zt7548,y_resolution = <1280>;
 		synaptics,diagonal-rotation;
 		status = "okay";

@@ -31,6 +31,13 @@
 #include <linux/of_irq.h>
 #include <linux/spinlock.h>
 
+#define user0      7		/*GPIO LED  GPIO1_7*/
+#define user1      12		/*GPIO LED  GPIO1_12*/
+#define user2      11		/*GPIO LED  GPIO1_11*/
+#define user3      13		/*GPIO LED  GPIO1_13*/
+#define user4      14		/*GPIO LED  GPIO1_14*/
+
+
 struct gpio_button_data {
 	const struct gpio_keys_button *button;
 	struct input_dev *input;
@@ -732,7 +739,7 @@ gpio_keys_get_devtree_pdata(struct device *dev)
 	return pdata;
 }
 
-static const struct of_device_id gpio_keys_of_match[] = {
+static const struct of_device_id gpio_keys_of_match[] = {//驱动匹配
 	{ .compatible = "gpio-keys", },
 	{ },
 };
@@ -748,7 +755,6 @@ static int gpio_keys_probe(struct platform_device *pdev)
 	size_t size;
 	int i, error;
 	int wakeup = 0;
-
 	if (!pdata) {
 		pdata = gpio_keys_get_devtree_pdata(dev);
 		if (IS_ERR(pdata))
@@ -912,7 +918,7 @@ static struct platform_driver gpio_keys_device_driver = {
 	}
 };
 
-static int __init gpio_keys_init(void)
+static int __init gpio_keys_init(void)//GPIO 注册
 {
 	return platform_driver_register(&gpio_keys_device_driver);
 }
