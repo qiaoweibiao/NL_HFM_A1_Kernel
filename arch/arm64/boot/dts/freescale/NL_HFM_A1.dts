@@ -24,45 +24,52 @@
 		bootargs = "console=ttymxc1,115200 earlycon=ec_imx6q,0x30890000,115200";
 		stdout-path = &uart2;
 	};
-			keys {
-				compatible = "gpio-keys";
-				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl_keys>;
-				
-				keys0: user0 {
-						label = "user0";
-						gpios = <&gpio1 7 GPIO_ACTIVE_HIGH>;
-						default-state = "on";
-						linux,default-trigger = "power_on";
-				};
-				
-				keys1: user1 {
-						label = "user1";
-						gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
-						default-state = "on";
-						linux,default-trigger = "lock_key";/*长按关机 短按锁屏*/
-				};
 
-				keys2: user2 {
-						label = "user2";
-						gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
-						default-state = "on";
-						linux,default-trigger = "VOL+";
-				};
-				keys3: user3 {
-						label = "user3";
-						gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
-						default-state = "on";
-						linux,default-trigger = "PLAY";
-				};
-				keys4: user4 {
-						label = "user4";
-						gpios = <&gpio1 14 GPIO_ACTIVE_LOW>;
-						default-state = "on";
-						linux,default-trigger = "VOL-";
-				
-				};						
-			};
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio_led>;
+
+		status {
+			label = "POWER_ON";
+			gpios = <&gpio1 7 0>;
+			default-state = "on";
+		};
+	};
+
+
+	keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_keys>;
+		
+		keys1: user1 {
+				label = "user1";
+				gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
+				default-state = "on";
+				linux,default-trigger = "lock_key";/*in 检测 长按关机 短按锁屏*/
+		};
+
+		keys2: user2 {
+				label = "user2";
+				gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
+				default-state = "on";
+				linux,default-trigger = "VOL+";/*in 检测 长按切歌曲下一首 短按 音量+ */
+		};
+		keys3: user3 {
+				label = "user3";
+				gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
+				default-state = "on";
+				linux,default-trigger = "PLAY";/*in 检测  播放 暂停  */
+		};
+		keys4: user4 {
+				label = "user4";
+				gpios = <&gpio1 14 GPIO_ACTIVE_LOW>;
+				default-state = "on";
+				linux,default-trigger = "VOL-";/*in 检测 长按切歌曲上一首 短按 音量- */
+		
+		};						
+	};
 
 	modem_reset: modem-reset {
 		compatible = "gpio-reset";
@@ -139,7 +146,7 @@
 	NL_HFM_A1 {
 		pinctrl_keys: keysgrp {
 			fsl,pins = <
-				MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7				0x19/*0001 1001‬ Disable pull resistors Select CMOS input Select pull-down resistors Disable open-drain mode FAST  00X Drive strength X1*/
+				//MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7				0x1950/*0001 1001‬ Disable pull resistors Select CMOS input Select pull-down resistors Disable open-drain mode FAST  00X Drive strength X1*/
 				MX8MM_IOMUXC_GPIO1_IO11_GPIO1_IO11				0x19			
 				MX8MM_IOMUXC_GPIO1_IO12_GPIO1_IO12              0x19										   
 				MX8MM_IOMUXC_GPIO1_IO13_GPIO1_IO13              0x19
@@ -147,6 +154,12 @@
 			>;
 		};
 
+
+		pinctrl_gpio_led: gpioledgrp {
+			fsl,pins = <
+				MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7	0x19
+			>;
+		};
 
 
 		pinctrl_mipi_dsi_en: mipi_dsi_en {
@@ -163,7 +176,7 @@
 
 		pinctrl_flexspi0: flexspi0grp {
 			fsl,pins = <
-				MX8MM_IOMUXC_NAND_ALE_QSPI_A_SCLK		0x1c2
+				MX8MM_IOMUXC_NAND_ALE_QSPI_A_SCLK			0x1c2
 				MX8MM_IOMUXC_NAND_CE0_B_QSPI_A_SS0_B		0x82
 				MX8MM_IOMUXC_NAND_DATA00_QSPI_A_DATA0		0x82
 				MX8MM_IOMUXC_NAND_DATA01_QSPI_A_DATA1		0x82
@@ -655,6 +668,19 @@
 
 
 
+&i2c4 {
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c4>;
+	status = "okay";
+	IP5328P: IP5328P@ea {/*ak4497@10*/
+	compatible = "BAT_CHARGER,IP5328P"; 
+	reg = <0xea>; 
+	};							 
+};
+
+
+
 &lcdif {
 	status = "okay";
 };	
@@ -824,7 +850,7 @@
 	pinctrl-0 = <&pinctrl_usdhc2>, <&pinctrl_usdhc2_gpio>;
 	pinctrl-1 = <&pinctrl_usdhc2_100mhz>, <&pinctrl_usdhc2_gpio>;
 	pinctrl-2 = <&pinctrl_usdhc2_200mhz>, <&pinctrl_usdhc2_gpio>;
-	cd-gpios = <&gpio1 15 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&gpio2 12 GPIO_ACTIVE_LOW>;//qwb 
 	bus-width = <4>;
 	vmmc-supply = <&reg_usdhc2_vmmc>;
 	status = "okay";

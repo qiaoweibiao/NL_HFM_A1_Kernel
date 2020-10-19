@@ -17,9 +17,9 @@
 
 /*
  * The pin function ID is a tuple of
- * <mux_reg conf_reg input_reg mux_mode input_val>
- */
-
+ * <mux_reg conf_reg:dts 中的值赋值给这个变量 input_reg mux_mode input_val>
+ */	
+ 																	// <mux_reg conf_reg input_reg mux_mode input_val>
 #define MX8MM_IOMUXC_GPIO1_IO00_GPIO1_IO0                                   0x028 0x290 0x000 0x0 0x0
 #define MX8MM_IOMUXC_GPIO1_IO00_CCMSRCGPCMIX_ENET_PHY_REF_CLK_ROOT          0x028 0x290 0x4C0 0x1 0x0
 #define MX8MM_IOMUXC_GPIO1_IO00_ANAMIX_REF_CLK_32K                          0x028 0x290 0x000 0x5 0x0
@@ -54,7 +54,7 @@
 #define MX8MM_IOMUXC_GPIO1_IO06_USDHC1_CD_B                                 0x040 0x2A8 0x000 0x5 0x0
 #define MX8MM_IOMUXC_GPIO1_IO06_CCMSRCGPCMIX_EXT_CLK3                       0x040 0x2A8 0x000 0x6 0x0
 #define MX8MM_IOMUXC_GPIO1_IO06_ECSPI1_TEST_TRIG                            0x040 0x2A8 0x000 0x7 0x0
-#define MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7                                   0x044 0x2AC 0x000 0x0 0x0
+#define MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7                                   0x044 0x2AC 0x000 0x0 0x0//0x044 0x2AC 0x000 0x0 0x0
 #define MX8MM_IOMUXC_GPIO1_IO07_ENET1_MDIO                                  0x044 0x2AC 0x000 0x1 0x0
 #define MX8MM_IOMUXC_GPIO1_IO07_USDHC1_WP                                   0x044 0x2AC 0x000 0x5 0x0
 #define MX8MM_IOMUXC_GPIO1_IO07_CCMSRCGPCMIX_EXT_CLK4                       0x044 0x2AC 0x000 0x6 0x0

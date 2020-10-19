@@ -45,6 +45,7 @@ static void gpio_led_set(struct led_classdev *led_cdev,
 		level = 0;
 	else
 		level = 1;
+	printk("qwb007 gpio-leds\n");
 
 	if (led_dat->blinking) {
 		led_dat->platform_gpio_blink_set(led_dat->gpiod, level,
