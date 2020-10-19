@@ -639,8 +639,8 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_i2c2_synaptics_dsx_io>;
 		zinitix,irq-gpio = <&gpio1 10 IRQ_TYPE_LEVEL_LOW>;
-		zt7548,x_resolution = <720>;
-		zt7548,y_resolution = <1280>;
+		zt7548,x_resolution = <720>;//720
+		zt7548,y_resolution = <1280>;//1280
 		synaptics,diagonal-rotation;
 		status = "okay";
 	};				   
@@ -673,9 +673,9 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4>;
 	status = "okay";
-	IP5328P: IP5328P@ea {/*ak4497@10*/
+	IP5328P: IP5328P@EA {/*IP5328P@EA*/
 	compatible = "BAT_CHARGER,IP5328P"; 
-	reg = <0xea>; 
+	reg = <0xEA>; 
 	};							 
 };
 
