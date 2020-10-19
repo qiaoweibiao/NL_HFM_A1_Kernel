@@ -31,7 +31,6 @@
 #include <linux/of_irq.h>
 #include <linux/spinlock.h>
 
-#define user0      7		/*GPIO LED  GPIO1_7*/
 #define user1      12		/*GPIO LED  GPIO1_12*/
 #define user2      11		/*GPIO LED  GPIO1_11*/
 #define user3      13		/*GPIO LED  GPIO1_13*/

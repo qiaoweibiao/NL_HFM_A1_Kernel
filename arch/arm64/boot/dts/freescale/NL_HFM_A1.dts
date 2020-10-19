@@ -40,33 +40,34 @@
 
 	keys {
 		compatible = "gpio-keys";
+		input-name = "gpio-keys";//qwb 20201020 add
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_keys>;
 		
-		keys1: user1 {
-				label = "user1";
-				gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
-				default-state = "on";
-				linux,default-trigger = "lock_key";/*in 检测 长按关机 短按锁屏*/
+		lock_key{
+				label = "lock_key";
+				gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+				gpio-key,wakeup;
+            	linux,code = <KEY_SCREENLOCK>;/*in 检测 长按关机 短按锁屏*/
 		};
 
-		keys2: user2 {
-				label = "user2";
+		VOL+{
+				label = "VOL+";
 				gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
-				default-state = "on";
-				linux,default-trigger = "VOL+";/*in 检测 长按切歌曲下一首 短按 音量+ */
+				gpio-key,wakeup;
+            	linux,code = <KEY_VOLUMEUP>;/*in 检测 长按切歌曲下一首 短按 音量+ */
 		};
-		keys3: user3 {
-				label = "user3";
+		PLAY{
+				label = "PLAY";
 				gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
-				default-state = "on";
-				linux,default-trigger = "PLAY";/*in 检测  播放 暂停  */
+				gpio-key,wakeup;
+            	linux,code = <KEY_PLAY>;/*in 检测  播放 暂停  */
 		};
-		keys4: user4 {
-				label = "user4";
+		VOL-{
+				label = "VOL-";
 				gpios = <&gpio1 14 GPIO_ACTIVE_LOW>;
-				default-state = "on";
-				linux,default-trigger = "VOL-";/*in 检测 长按切歌曲上一首 短按 音量- */
+				gpio-key,wakeup;
+            	linux,code = <KEY_VOLUMEDOWN>;/*in 检测 长按切歌曲上一首 短按 音量- */
 		
 		};						
 	};
