@@ -30,13 +30,6 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/spinlock.h>
-
-#define user1      12		/*GPIO LED  GPIO1_12*/
-#define user2      11		/*GPIO LED  GPIO1_11*/
-#define user3      13		/*GPIO LED  GPIO1_13*/
-#define user4      14		/*GPIO LED  GPIO1_14*/
-
-
 struct gpio_button_data {
 	const struct gpio_keys_button *button;
 	struct input_dev *input;

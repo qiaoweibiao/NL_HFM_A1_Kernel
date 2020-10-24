@@ -15,8 +15,8 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef MXC_SIM_INTERFACE_H
-#define MXC_SIM_INTERFACE_H
+#ifndef UAPI_MXC_SIM_INTERFACE_H
+#define UAPI_MXC_SIM_INTERFACE_H
 
 #define SIM_ATR_LENGTH_MAX 32
 
