@@ -44,6 +44,10 @@ struct ak4497_priv {
 	int fs1;	/* Sampling Frequency */
 	int nBickFreq;	/* 0: 48fs for 24bit,  1: 64fs or more for 32bit */
 	int nTdmSds;
+	
+	int psn_gpio;//add pin 控制 上电前 pin 控制 使能mute pin 进入系统 使用 i2c 控制 解决 上电时候 滴答 的声音
+	
+	//int pon_gpio;//
 	int pdn_gpio;
 	int mute_gpio;
 	int fmt;
@@ -860,14 +864,59 @@ static int ak4497_parse_dt(struct ak4497_priv *ak4497)
 
 	dev = &(ak4497->i2c->dev);
 	np = dev->of_node;
+	ak4497->psn_gpio = -1;//qwb007
+
+	//ak4497->pon_gpio = -1;//qwb007
 
 	ak4497->pdn_gpio = -1;
 	ak4497->mute_gpio = -1;
 
 	if (!np)
 		return -1;
+	ak4497->psn_gpio = of_get_named_gpio(np, "ak4497,psn-gpio", 1);//1: pin 控制  0 :寄存器控制
+	
+	ak4497->mute_gpio = of_get_named_gpio(np, "ak4497,mute-gpio", 1);//PIN 控制 1:静音 0 解除静音
+	
+	//ak4497->pon_gpio = of_get_named_gpio(np, "ak4497,pon-gpio", 1);//1:外部电源上电 0:外部电源掉电
+	/*
+	while(1)
+		{
+		
+		mdelay(1500);
+	
+		gpio_set_value_cansleep(ak4497->pon_gpio, 1);//1:外部电源上电 0:外部电源掉电
+		printk("qwb007	pin conctrol mute power on  1   ");
+		
+		mdelay(1500);
+		gpio_set_value_cansleep(ak4497->pon_gpio, 0);//1:外部电源上电 0:外部电源掉电
 
-	ak4497->pdn_gpio = of_get_named_gpio(np, "ak4497,pdn-gpio", 0);
+		printk("qwb007	pin conctrol mute power on  0   ");
+
+		mdelay(5500);
+
+		gpio_set_value_cansleep(ak4497->mute_gpio, 0);//PIN 控制 1:静音 0 解除静音
+		printk("qwb007	5S pin conctrol mute_gpio 0	didi ");
+
+		mdelay(1500);
+	
+		gpio_set_value_cansleep(ak4497->pon_gpio, 1);//1:外部电源上电 0:外部电源掉电
+		printk("qwb007	pin conctrol mute power on  1   ");
+		
+		mdelay(1500);
+		gpio_set_value_cansleep(ak4497->pon_gpio, 0);//1:外部电源上电 0:外部电源掉电
+
+		printk("qwb007	pin conctrol mute power on  0   ");
+
+		mdelay(5500);
+
+		gpio_set_value_cansleep(ak4497->mute_gpio, 1);//PIN 控制 1:静音 0 解除静音
+		printk("qwb007	5S pin conctrol mute_gpio 1	mute ");
+
+	}
+
+	*/
+	
+	ak4497->pdn_gpio = of_get_named_gpio(np, "ak4497,pdn-gpio", 0);//ak4497 芯片上电
 	if (ak4497->pdn_gpio < 0)
 		ak4497->pdn_gpio = -1;
 
@@ -894,6 +943,7 @@ static int ak4497_probe(struct snd_soc_codec *codec)
 {
 	struct ak4497_priv *ak4497 = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
+	printk("qwb007 ak4497->pdn_gpio,ak4497 pdn");
 
 	ret = ak4497_parse_dt(ak4497);
 	if (ret)
@@ -901,12 +951,14 @@ static int ak4497_probe(struct snd_soc_codec *codec)
 
 	if (gpio_is_valid(ak4497->pdn_gpio)) {
 		ret = gpio_request(ak4497->pdn_gpio, "ak4497 pdn");
+		printk("qwb007 ak4497->pdn_gpio,ak4497 pdn");
 		if (ret)
 			return ret;
 		gpio_direction_output(ak4497->pdn_gpio, 0);
 	}
 	if (gpio_is_valid(ak4497->mute_gpio)) {
 		ret = gpio_request(ak4497->mute_gpio, "ak4497 mute");
+		printk("qwb007 ak4497->mute_gpioak4497 mute");
 		if (ret)
 			return ret;
 		gpio_direction_output(ak4497->mute_gpio, 0);

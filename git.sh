@@ -1,5 +1,5 @@
 #!/bin/sh
 git add .
-git commit -m"change touchpanel 1920 to 1280"
+git commit -m"remove the x = y = of touchscreen"
 git pull origin master
 git push origin master

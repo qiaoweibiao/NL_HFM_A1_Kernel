@@ -30,11 +30,18 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_led>;
 
-		status {
-			label = "POWER_ON";
+		status1 {
+			label = "LP_OFF";
 			gpios = <&gpio1 7 0>;
-			default-state = "on";
+			default-state = "on";	
 		};
+
+		status2{
+			label = "DAC_PWR_ON";
+			gpios = <&gpio1 6 0>;
+			default-state = "on";	
+		};
+
 	};
 
 
@@ -158,7 +165,9 @@
 
 		pinctrl_gpio_led: gpioledgrp {
 			fsl,pins = <
-				MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7	0x19
+				MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7	0x19//system power on 
+				
+				MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6	0x19//DAC power on
 			>;
 		};
 
@@ -205,6 +214,15 @@
 			fsl,pins = <
 				MX8MM_IOMUXC_I2C3_SCL_I2C3_SCL			0x400001c3
 				MX8MM_IOMUXC_I2C3_SDA_I2C3_SDA			0x400001c3
+										
+				MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5		0x19									 
+				MX8MM_IOMUXC_SAI3_TXC_GPIO5_IO0			0x19				   
+				MX8MM_IOMUXC_SAI3_RXD_GPIO4_IO30		0x19
+				MX8MM_IOMUXC_SAI3_RXC_GPIO4_IO29		0x19
+				MX8MM_IOMUXC_SAI3_RXFS_GPIO4_IO28		0x19		
+
+
+			
 			>;
 		};
 
@@ -236,13 +254,7 @@
 				MX8MM_IOMUXC_SAI1_TXD6_SAI1_TX_DATA6	0xd6
 				MX8MM_IOMUXC_SAI1_TXD7_SAI1_TX_DATA7	0xd6
 		  
-				MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6		0x19						
-				MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5		0x19									 
-				MX8MM_IOMUXC_SAI3_TXC_GPIO5_IO0			0x19				   
-				MX8MM_IOMUXC_SAI3_RXD_GPIO4_IO30		0x19
-				MX8MM_IOMUXC_SAI3_RXC_GPIO4_IO29		0x19
-				MX8MM_IOMUXC_SAI3_RXFS_GPIO4_IO28		0x19								 
-	
+
 			>;
 		};
 
@@ -260,13 +272,7 @@
 				MX8MM_IOMUXC_SAI1_TXD5_SAI1_TX_DATA5	0xd6
 				MX8MM_IOMUXC_SAI1_TXD6_SAI1_TX_DATA6	0xd6
 				MX8MM_IOMUXC_SAI1_TXD7_SAI1_TX_DATA7	0xd6
-				
-				MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6		0x19						
-				MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5		0x19									 
-				MX8MM_IOMUXC_SAI3_TXC_GPIO5_IO0			0x19				   
-				MX8MM_IOMUXC_SAI3_RXD_GPIO4_IO30		0x19
-				MX8MM_IOMUXC_SAI3_RXC_GPIO4_IO29		0x19
-				MX8MM_IOMUXC_SAI3_RXFS_GPIO4_IO28		0x19					
+					
 			>;
 		};
 
@@ -656,12 +662,13 @@
 	ak4497: ak4497@10 {/*ak4497@10*/
 	compatible = "asahi-kasei,ak4497"; 
 	reg = <0x10>;
-	ak4497,pon-gpio = <&gpio1 6 GPIO_ACTIVE_HIGH>;/*power on H power supply L no power */
+	//ak4497,pon-gpio = <&gpio1 6 GPIO_ACTIVE_HIGH>;/*power on H power supply L no power */
 	ak4497,pdn-gpio = <&gpio1 5 GPIO_ACTIVE_HIGH>;/*power down mode H: work mode L: power_down mode  */
 	ak4497,mute-gpio = <&gpio5 0 GPIO_ACTIVE_LOW>;/*AK_nMUTE H mute L mute relase*/
 	ak4497,psn-gpio = <&gpio4 30 GPIO_ACTIVE_LOW>;/*AK_PSN H pin control Mode L Register Control Mode*/
 	ak4497,i2c-gpio = <&gpio4 29 GPIO_ACTIVE_HIGH>;/*HLOAD/I2C = H I2C-bus Control Mode*/
-	ak4497,cad1-gpio = <&gpio4 28 GPIO_ACTIVE_LOW>; /*CAD1 L   i2c address of ak4497 */	   												  
+	ak4497,cad1-gpio = <&gpio4 28 GPIO_ACTIVE_LOW>; /*CAD1 L   i2c address of ak4497 */	  
+	
 	AVDD-supply = <&reg_audio_board>;
 	DVDD-supply = <&reg_audio_board>;   
 	};							 

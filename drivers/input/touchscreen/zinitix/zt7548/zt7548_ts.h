@@ -147,11 +147,11 @@ enum data_type {
 
 /* temp bringup for a5x */
 #ifdef CONFIG_SEC_A9XLTE_PROJECT
-#define TOUCH_POINT_MODE	0
+#define TOUCH_POINT_MODE	0//qwb
 #undef SUPPORTED_KEY_LED
 #undef SUPPORTED_TOUCH_KEY
 #else
-#define TOUCH_POINT_MODE	1
+#define TOUCH_POINT_MODE	0
 #define SUPPORTED_KEY_LED
 #define SUPPORTED_TOUCH_KEY
 #endif
