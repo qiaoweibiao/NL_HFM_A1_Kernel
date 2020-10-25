@@ -60,13 +60,13 @@
 
 		VOL+{
 				label = "VOL+";
-				gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
+				gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
 				gpio-key,wakeup;
             	linux,code = <KEY_VOLUMEUP>;/*in 检测 长按切歌曲下一首 短按 音量+ */
 		};
 		PLAY{
 				label = "PLAY";
-				gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
+				gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
 				gpio-key,wakeup;
             	linux,code = <KEY_PLAY>;/*in 检测  播放 暂停  */
 		};
@@ -670,8 +670,8 @@
 	ak4497,cad1-gpio = <&gpio4 28 GPIO_ACTIVE_LOW>; /*CAD1 L   i2c address of ak4497 */	  
 	
 	AVDD-supply = <&reg_audio_board>;
-	DVDD-supply = <&reg_audio_board>;   
-	};							 
+	DVDD-supply = <&reg_audio_board>;
+	};
 };
 
 
@@ -681,9 +681,12 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4>;
 	status = "okay";
-	IP5328P: IP5328P@EA {/*IP5328P@EA*/
-	compatible = "BAT_CHARGER,IP5328P"; 
+	ip5328p: ip5328p@EA {/*IP5328P@EA*/
+	compatible = "injoinic,ip5328p"; 
 	reg = <0xEA>; 
+	//ip5328p,B_IC_KEY = <&gpio1 15 GPIO_ACTIVE_HIGH>;//
+	//ip5328p,USB2_VBUS =     USB2_VBUS   可以检测usb的插入以及是 host 还是 device
+
 	};							 
 };
 

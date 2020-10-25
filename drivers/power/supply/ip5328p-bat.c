@@ -151,7 +151,7 @@ static int bq27xxx_battery_i2c_probe(struct i2c_client *client,
 	int ret;
 	char *name;
 	int num;
-
+	printk("qwb007 bat IP5328P");
 	/* Get new ID for the new battery device */
 	mutex_lock(&battery_mutex);
 	num = idr_alloc(&battery_id, client, 0, 0, GFP_KERNEL);
@@ -226,60 +226,15 @@ static int bq27xxx_battery_i2c_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id bq27xxx_i2c_id_table[] = {
-	{ "bq27200", BQ27000 },
-	{ "bq27210", BQ27010 },
-	{ "bq27500", BQ2750X },
-	{ "bq27510", BQ2751X },
-	{ "bq27520", BQ2752X },
-	{ "bq27500-1", BQ27500 },
-	{ "bq27510g1", BQ27510G1 },
-	{ "bq27510g2", BQ27510G2 },
-	{ "bq27510g3", BQ27510G3 },
-	{ "bq27520g1", BQ27520G1 },
-	{ "bq27520g2", BQ27520G2 },
-	{ "bq27520g3", BQ27520G3 },
-	{ "bq27520g4", BQ27520G4 },
-	{ "bq27530", BQ27530 },
-	{ "bq27531", BQ27531 },
-	{ "bq27541", BQ27541 },
-	{ "bq27542", BQ27542 },
-	{ "bq27546", BQ27546 },
-	{ "bq27742", BQ27742 },
-	{ "bq27545", BQ27545 },
-	{ "bq27421", BQ27421 },
-	{ "bq27425", BQ27425 },
-	{ "bq27441", BQ27441 },
-	{ "bq27621", BQ27621 },
+	{ "ip5328p",0},
 	{},
 };
 MODULE_DEVICE_TABLE(i2c, bq27xxx_i2c_id_table);
 
 #ifdef CONFIG_OF
 static const struct of_device_id bq27xxx_battery_i2c_of_match_table[] = {
-	{ .compatible = "ti,bq27200" },
-	{ .compatible = "ti,bq27210" },
-	{ .compatible = "ti,bq27500" },
-	{ .compatible = "ti,bq27510" },
-	{ .compatible = "ti,bq27520" },
-	{ .compatible = "ti,bq27500-1" },
-	{ .compatible = "ti,bq27510g1" },
-	{ .compatible = "ti,bq27510g2" },
-	{ .compatible = "ti,bq27510g3" },
-	{ .compatible = "ti,bq27520g1" },
-	{ .compatible = "ti,bq27520g2" },
-	{ .compatible = "ti,bq27520g3" },
-	{ .compatible = "ti,bq27520g4" },
-	{ .compatible = "ti,bq27530" },
-	{ .compatible = "ti,bq27531" },
-	{ .compatible = "ti,bq27541" },
-	{ .compatible = "ti,bq27542" },
-	{ .compatible = "ti,bq27546" },
-	{ .compatible = "ti,bq27742" },
-	{ .compatible = "ti,bq27545" },
-	{ .compatible = "ti,bq27421" },
-	{ .compatible = "ti,bq27425" },
-	{ .compatible = "ti,bq27441" },
-	{ .compatible = "ti,bq27621" },
+
+	{ .compatible = "injoinic,ip5328p" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, bq27xxx_battery_i2c_of_match_table);
@@ -287,7 +242,7 @@ MODULE_DEVICE_TABLE(of, bq27xxx_battery_i2c_of_match_table);
 
 static struct i2c_driver bq27xxx_battery_i2c_driver = {
 	.driver = {
-		.name = "bq27xxx-battery",
+		.name = "ip5328p",
 		.of_match_table = of_match_ptr(bq27xxx_battery_i2c_of_match_table),
 	},
 	.probe = bq27xxx_battery_i2c_probe,
