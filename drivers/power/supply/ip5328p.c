@@ -1,882 +1,272 @@
 /*
- *  ip5328p_battery.c
- *  fuel-gauge systems for lithium-ion (Li+) batteries
- *
- *  Copyright (C) 2019 SStar
- *  lei.qin <lei.qin@sigmastar.com.cn>
+ * Copyright (c) 2016, Prodys S.L.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This adds support for ip5328p compilant chips as defined here:
+ * http://sbs-forum.org/specs/sbc110.pdf
+ *
+ * Implemetation based on sbs-battery.c
  */
 
-#include <linux/module.h>
 #include <linux/init.h>
-#include <linux/platform_device.h>
-#include <linux/mutex.h>
+#include <linux/module.h>
+#include <linux/kernel.h>
 #include <linux/err.h>
-#include <linux/i2c.h>
-#include <linux/delay.h>
 #include <linux/power_supply.h>
-#include <linux/power/ip5328p.h>
+#include <linux/i2c.h>
 #include <linux/slab.h>
-#include <linux/reboot.h>
-#include <linux/of.h>
-#include <linux/of_irq.h>
-#include <linux/of_address.h>
 #include <linux/interrupt.h>
-//#include <../../../drivers/sstar/include/infinity6e/irqs.h>
 #include <linux/gpio.h>
-//#include <../../../drivers/sstar/include/infinity6e/gpio.h>
+#include <linux/regmap.h>
+#include <linux/of_gpio.h>
+#include <linux/bitops.h>
 
-#define ip5328p_VCELL_MSB	0x02
-#define ip5328p_VCELL_LSB	0x03
-#define ip5328p_SOC_MSB	0x04
-#define ip5328p_SOC_LSB	0x05
-#define ip5328p_MODE_MSB	0x06
-#define ip5328p_MODE_LSB	0x07
-#define ip5328p_VER_MSB	0x08
-#define ip5328p_VER_LSB	0x09
-#define ip5328p_RCOMP_MSB	0x0C
-#define ip5328p_RCOMP_LSB	0x0D
-#define ip5328p_CMD_MSB	0xFE
-#define ip5328p_CMD_LSB	0xFF
+#define SBS_CHARGER_REG_SPEC_INFO		0x11
+#define SBS_CHARGER_REG_STATUS			0x13
+#define SBS_CHARGER_REG_ALARM_WARNING		0x16
 
-#define ip5328p_DELAY		1000
-//#define ip5328p_POWEROFF_DELAY		500
+#define SBS_CHARGER_STATUS_CHARGE_INHIBITED	BIT(1)
+#define SBS_CHARGER_STATUS_RES_COLD		BIT(9)
+#define SBS_CHARGER_STATUS_RES_HOT		BIT(10)
+#define SBS_CHARGER_STATUS_BATTERY_PRESENT	BIT(14)
+#define SBS_CHARGER_STATUS_AC_PRESENT		BIT(15)
 
-#define ip5328p_BATTERY_FULL	95
+#define SBS_CHARGER_POLL_TIME			500
 
-#define ip5328p_MAX_V        4300
-#define ip5328p_PF_NOTIFY    4000    //poweroff notify
-#define ip5328p_MIN_V        3600
-#define ip5328p_POFF_PERC      50    //less than 40%
-#define ip5328p_CHK_CNT      2       //above 2 times in less than 40%
-
-struct ip5328p_chip {
+struct sbs_info {
 	struct i2c_client		*client;
+	struct power_supply		*power_supply;
+	struct regmap			*regmap;
 	struct delayed_work		work;
-	struct power_supply		*battery;
-	struct ip5328p_platform_data	*pdata;
-    unsigned int            irq;            // IRQ number
-
-	/* State Of Connect */
-	int online;
-	/* battery voltage */
-	int vcell;
-	/* battery capacity */
-	int soc;
-	/* State Of Charge */
-	int status;
-    /* State Of Charge Enable */
-    int chargEn;
-    /* check Of battery exit */
-    int assembleBat;
-    /* force to update all status */
-    int updateAll;
-    /* long press status */
-    int longPress;
-
-    int BatLowLoopCnt;
+	unsigned int			last_state;
 };
 
-struct ip5328p_chip *g_chip;
-
-static int ip5328p_write_reg(struct i2c_client *client, int reg, u8 value)
-{
-	int ret;
-
-	ret = i2c_smbus_write_byte_data(client, reg, value);
-
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	return ret;
-}
-
-static int ip5328p_read_reg(struct i2c_client *client, int reg)
-{
-	int ret;
-
-	ret = i2c_smbus_read_byte_data(client, reg);
-
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	return ret;
-}
-
-static void ip5328p_reset(struct i2c_client *client)
-{
-#if defined(IP_PMU_WATCH_DOG_ENABLE) && (IP_PMU_WATCH_DOG_ENABLE)
-    int returnvalue;
-    ip5328pWDogCtl_U uWDogCtl;
-
-	uWDogCtl.uData = (unsigned int)ip5328p_read_reg(client,WDOG_CTL);
-
-	uWDogCtl.tFlag.bIsWDogEn = 0;
-	uWDogCtl.tFlag.bTimerClr = 1;
-	ip5328p_write_reg(client,WDOG_CTL, (u8)uWDogCtl.uData);
-
-	uWDogCtl.tFlag.uTimerType = 0;
-	uWDogCtl.tFlag.bTimerClr = 0;
-	uWDogCtl.tFlag.bIsWDogEn = 1;
-	returnvalue = ip5328p_write_reg(client,WDOG_CTL, (u8)uWDogCtl.uData);
-    printk(KERN_NOTICE "%s: uWDogCtl.uData= %d\n", __func__, uWDogCtl.uData);
-
-#endif
-}
-
-void ip5328p_Initialize(struct i2c_client *client)
-{
-	IpIntsCtl_U 	uIntsCtl = {0};
-	IpIntrMask0_U	uIntrMask0 = {0};
-	IpChgDigCtl3_U  uChgDigCtl3 = {0};
-	IpAdcAnaCtl0_U  uAdcAnaCtl0 = {0};
-    unsigned int    stu0,stu1,stu2;
-    u8              u8PwrEn, u8val, i;
-    int             err;
-    u32             val;
-    char            nam[16]={0};
-    struct ip5328p_chip *chip = i2c_get_clientdata(client);
-
-    stu0 = ip5328p_read_reg(client,PWROFF_REC0);
-    stu1 = ip5328p_read_reg(client,PWROFF_REC1);
-    stu2 = ip5328p_read_reg(client,PWROFF_REC2);
-    printk(KERN_NOTICE "%s,PWROFF_REC[0x%02x,0x%02x,0x%02x]\n", __func__,stu0,stu1,stu2);
-
-    //OK_SET=4.3V,VBUSOCH_SET>=2A
-    ip5328p_write_reg(client,PROTECT_CTL4, 0x3C);
-
-    uIntsCtl.uData = (unsigned int)ip5328p_read_reg(client,INTS_CTL);
-	uIntsCtl.tFlag.bIrqPolHighValid = PMU_IRQ_ACT_LEVEL;
-    ip5328p_write_reg(client,INTS_CTL, uIntsCtl.uData);
-
-	//Intr Cfg -- INTR MASK
-	uIntrMask0.uData = 0xFF;
-	uIntrMask0.tFlag.bShortPressOnOff = IP_PMU_INTR_UNMASK;
-	uIntrMask0.tFlag.bLongPressOnOff = IP_PMU_INTR_UNMASK;
-    uIntrMask0.tFlag.bVBusIn = IP_PMU_INTR_UNMASK;
-	uIntrMask0.tFlag.bVBusOut = IP_PMU_INTR_UNMASK;
-    uIntrMask0.tFlag.bLowBat = IP_PMU_INTR_UNMASK;
-    ip5328p_write_reg(client,INTR_MASK_0, uIntrMask0.uData);
-
-    for(i = 1; i <= 3; i++){
-        sprintf(nam,"DC%d_VSET",i);
-        err = of_property_read_u32(client->dev.of_node, nam, &val);
-        if((err < 0) && (val < 3600) && (val > 600)){
-            dev_err(&client->dev, "dts can't find %s\n",nam);
-        }else{
-            u8val = (u8)((val-600)*10/125 & 0xff);//0.6V~3.6V=>0000_0000~1111_0000,step=12.5mv
-            printk(KERN_NOTICE "dts find %s=%dmV,0x%02x\n",nam,val,u8val);
-            ip5328p_write_reg(client,DC1_VSET+(i-1)*5, u8val);
-        }
-    }
-
-    memset(nam,0,sizeof(nam));
-    for(i = 2; i <= 5; i++){
-        sprintf(nam,"LDO%d_VSET",i);
-        err = of_property_read_u32(client->dev.of_node, nam, &val);
-        if((err < 0) && (val < 3400) && (val > 700)){
-            dev_err(&client->dev, "dts can't find %s\n",nam);
-        }else{
-            u8val = (u8)(((val-700)/25) & 0xff);//0.7V~3.4V=>0000_0000~0110_1100,step=25mv
-            printk(KERN_NOTICE "dts find %s=%dmV,0x%02x\n",nam,val,u8val);
-            ip5328p_write_reg(client,LDO2_VSET+i-2, u8val);
-            u8PwrEn |= (1 << i);
-        }
-   }
-    //dev_err(&client->dev, "LDO_EN =0x%02x\n",u8PwrEn);
-    //ENABLE:LDO2&LDO3&LDO4&LDO5
-    ip5328p_write_reg(client,LDO_EN, u8PwrEn);
-
-	ip5328p_write_reg(client,CHG_ANA_CTL0, 0X21);    //fast charge:28mV  EN_ISTOP=enable
-    ip5328p_write_reg(client,PSTATE_SET, 0X80);      //S2S3_DELAY=8mS
-
-	//clear all irq status
-    ip5328p_write_reg(client,INTR_FLAG_0, 0xFF);
-
-	//enable voltage ADC
-    uAdcAnaCtl0.uData = (unsigned int)ip5328p_read_reg(client,ADC_ANA_CTL0);
-	uAdcAnaCtl0.tFlag.bEnVBatAdc = 1;
-    ip5328p_write_reg(client,ADC_ANA_CTL0, (u8)uAdcAnaCtl0.uData);
-    msleep(10);
-
-	//enable charging
-    uChgDigCtl3.uData = (unsigned int)ip5328p_read_reg(client,CHG_DIG_CTL3);
-	uChgDigCtl3.tFlag.bEnChg = 1;
-    chip->chargEn = 1;
-    ip5328p_write_reg(client,CHG_DIG_CTL3, (u8)uChgDigCtl3.uData);
-
-	#if defined(IP_PMU_WATCH_DOG_ENABLE) && (IP_PMU_WATCH_DOG_ENABLE)
-	{
-		//�򿪿��Ź�
-		ip5328pWDogCtl_U uWDogCtl = {0};
-		//returnvalue = IP_ip5328p_ReadReg(WDOG_CTL, (MMP_USHORT*)&(uWDogCtl.uData));
-        uWDogCtl.uData = (unsigned int)ip5328p_read_reg(client,WDOG_CTL);
-		uWDogCtl.tFlag.uTimerType = 3;
-		uWDogCtl.tFlag.bIsWDogEn = 1;
-		//returnvalue = IP_ip5328p_WriteReg(WDOG_CTL, uWDogCtl.uData);
-        ip5328p_write_reg(client,WDOG_CTL, (u8)uWDogCtl.uData);
-	}
-	#endif
-}
-
-static void ip5328p_charge_en(struct i2c_client *client,bool en)
-{
-	struct ip5328p_chip *chip = i2c_get_clientdata(client);
-    IpChgDigCtl3_U  uChgDigCtl3 = {0};
-
-    chip->chargEn = en;
-    //enable charging
-    uChgDigCtl3.uData = (unsigned int)ip5328p_read_reg(client,CHG_DIG_CTL3);
-	uChgDigCtl3.tFlag.bEnChg = en;
-    ip5328p_write_reg(client,CHG_DIG_CTL3, (u8)uChgDigCtl3.uData);
-}
-
-static void ip5328p_power_off(struct i2c_client *client)
-{
-    IPPStateCtl0_U  uPStateCtl0 = {0};
-
-    ip5328p_charge_en(client,0);//disable charging
-
-	uPStateCtl0.uData = ip5328p_read_reg(client,PSTATE_CTL0);
-    uPStateCtl0.tFlag.bIrqWkEn = 1;
-	uPStateCtl0.tFlag.bSOnoffWkEn = 1;  //DR0010�̰�������, �̰��������ᵼ��ͣ������޷�����
-	uPStateCtl0.tFlag.bLOnoffWkEn = 1;
-	uPStateCtl0.tFlag.bPwrOffEn = 0;
-    uPStateCtl0.tFlag.bVBusWkEn = 0;
-    ip5328p_write_reg(client,PSTATE_CTL0, (u8)uPStateCtl0.uData);
-    msleep(2);
-	uPStateCtl0.tFlag.bPwrOffEn = 1;
-
-	while(1)
-	{
-	    printk(KERN_NOTICE "********ip5328p:SHUT DOWN*******\n\n");
-		ip5328p_write_reg(client,PSTATE_CTL0, (u8)uPStateCtl0.uData);
-		msleep(2);
-	}
-}
-
-static void ip5328p_poweroff_enter(void)
-{
-    ip5328p_power_off(g_chip->client);
-}
-
-static void ip5328p_get_vcell(struct i2c_client *client)
-{
-	struct ip5328p_chip *chip = i2c_get_clientdata(client);
-    u32 ubValue, uVoltage;
-
-	//Get VBAT,Uint:mV
-    ubValue = (u32)ip5328p_read_reg(client, ADC_DATA_VBAT);
-	uVoltage = ubValue*15625 +500000+ 15625/2;
-    uVoltage /= 1000;
-    printk(KERN_INFO "\n%s dev-reg[%x,0x64],V:%dmV\n", __func__,client->addr,uVoltage);
-    chip->vcell = uVoltage;
-}
-
-static void ip5328p_get_soc(struct i2c_client *client)
-{
-    struct ip5328p_chip *chip = i2c_get_clientdata(client);
-    int charging = chip->chargEn;
-    IpChgDigCtl3_U  uChgDigCtl3 = {0};
-
-    if(chip->vcell < ip5328p_MIN_V){
-        chip->soc = 0;
-        chip->BatLowLoopCnt ++;
-    }
-    else if (chip->vcell > ip5328p_MAX_V){
-        chip->soc = 100;
-        chip->chargEn = 0;
-        chip->BatLowLoopCnt = 0;
-    }
-    else{
-        chip->soc = (chip->vcell - ip5328p_MIN_V) *100 / (ip5328p_MAX_V - ip5328p_MIN_V);
-        if(chip->soc < ip5328p_POFF_PERC){
-            chip->BatLowLoopCnt ++;
-        }
-        else{
-            (chip->BatLowLoopCnt > 0)? (chip->BatLowLoopCnt--):(chip->BatLowLoopCnt = 0);
-        }
-    }
-
-    if(charging != chip->chargEn){
-        printk(KERN_INFO "%s chargEn=%d\n", __func__,chip->chargEn);//
-
-        uChgDigCtl3.uData = (unsigned int)ip5328p_read_reg(client,CHG_DIG_CTL3);
-    	uChgDigCtl3.tFlag.bEnChg = (chip->chargEn)? 1:0;
-        ip5328p_write_reg(client,CHG_DIG_CTL3, (u8)uChgDigCtl3.uData);
-    }
-}
-
-static void ip5328p_get_version(struct i2c_client *client)
-{
-	u8 msb;
-	u8 lsb;
-
-	msb = 0x11;
-	lsb = 0x22;
-	printk(KERN_INFO "TODO::ip5328p Fuel-Gauge Ver %d%d\n", msb, lsb);
-}
-
-static void ip5328p_get_battery_assemble(struct i2c_client *client)
-{
-    int RegIntFlag0;
-    struct ip5328p_chip *chip = i2c_get_clientdata(client);
-
-    //enable to check
-    RegIntFlag0 = ip5328p_read_reg(client, PSTATE_CTL3);
-    ip5328p_write_reg(client, PSTATE_CTL3,RegIntFlag0|BIT0);
-
-	//Get BAT ext status
-	RegIntFlag0 = ip5328p_read_reg(client,CHG_DIG_CTL2);
-	if(RegIntFlag0 & BIT3)
-        chip->assembleBat = 1;
-}
-
-static void ip5328p_get_init_online(struct i2c_client *client)
-{
-    int RegIntFlag0;
-    struct ip5328p_chip *chip = i2c_get_clientdata(client);
-
-    RegIntFlag0 = ip5328p_read_reg(client, INTR_FLAG_0);
-    ip5328p_write_reg(client, INTR_FLAG_0,RegIntFlag0);  //clear flag
-    //printk(KERN_INFO "TODO::%s RegIntFlag0=0x%x\n", __func__, RegIntFlag0);
-
-    if(!(RegIntFlag0 & (BIT0|BIT1))){         //long press && short press issue
-        chip->online = RegIntFlag0 & BIT3;  //plug in
-    }
-
-    //REF:ip5328p_SoftwareApplication_User's_Guide_Vxxx.PDF
-    //How to judge VBUS status.
-    RegIntFlag0 = ip5328p_read_reg(client,CHG_DIG_CTL1);
-    printk(KERN_INFO "TODO::%s reg0x54=0x%x\n", __func__, RegIntFlag0);
-    if(RegIntFlag0)
-        chip->online = 1;
-
-    #if 0
-    else{
-		RegIntFlag0 = ip5328p_read_reg(client,ADC_ANA_CTL0);
-		RegIntFlag0 |= BIT2;                //enable current check
-		ip5328p_write_reg(client, ADC_ANA_CTL0,RegIntFlag0);
-        RegIntFlag0 = ip5328p_read_reg(client,ADC_DATA_ICHG);
-		RegIntFlag0 = (RegIntFlag0*15625-750000+15625/2)/3;
-        chip->online = 1;
-    }
-    #endif
-}
-
-static void ip5328p_get_online(struct i2c_client *client)
-{
-    int RegIntFlag0;
-    struct ip5328p_chip *chip = i2c_get_clientdata(client);
-
-    RegIntFlag0 = ip5328p_read_reg(client, INTR_FLAG_0);
-    ip5328p_write_reg(client, INTR_FLAG_0,RegIntFlag0);  //clear flag
-
-    chip->online = RegIntFlag0 & BIT3;//plug in
-    if(chip->online){
-        printk(KERN_INFO "TODO::%s online***\n", __func__);
-    }
-
-    chip->longPress = RegIntFlag0 & (BIT1|BIT0);    //power-key:short press & long press
-}
-
-static void ip5328p_get_status(struct i2c_client *client)
-{
-	struct ip5328p_chip *chip = i2c_get_clientdata(client);
-
-	if(chip->online) {
-		if (chip->chargEn)
-			chip->status = POWER_SUPPLY_STATUS_CHARGING;
-		else
-			chip->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
-	} else {
-		chip->status = POWER_SUPPLY_STATUS_DISCHARGING;
-	}
-
-	if(chip->soc > ip5328p_BATTERY_FULL)
-		chip->status = POWER_SUPPLY_STATUS_FULL;
-
-}
-
-static void ip5328p_get_all(struct i2c_client *client)
-{
-	ip5328p_get_vcell(client);
-	ip5328p_get_soc(client);
-	ip5328p_get_online(client);
-	ip5328p_get_status(client);
-}
-
-static int ip5328p_get_property(struct power_supply *psy,
+static int sbs_get_property(struct power_supply *psy,
 			    enum power_supply_property psp,
 			    union power_supply_propval *val)
 {
-	struct ip5328p_chip *chip = power_supply_get_drvdata(psy);
+	struct sbs_info *chip = power_supply_get_drvdata(psy);
+	unsigned int reg;
 
-    if(chip->updateAll){
-        chip->updateAll = 0;
-        ip5328p_get_all(chip->client);
-
-        if((chip->vcell < ip5328p_PF_NOTIFY) || (chip->longPress)){
-            chip->longPress = 0;
-            kernel_power_off();
-        }
-    }
+	reg = chip->last_state;
 
 	switch (psp) {
-	case POWER_SUPPLY_PROP_STATUS:
-		val->intval = chip->status;
+	case POWER_SUPPLY_PROP_PRESENT:
+		val->intval = !!(reg & SBS_CHARGER_STATUS_BATTERY_PRESENT);
 		break;
+
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = chip->online;
+		val->intval = !!(reg & SBS_CHARGER_STATUS_AC_PRESENT);
 		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = chip->vcell;
+
+	case POWER_SUPPLY_PROP_STATUS:
+		val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
+
+		if (!(reg & SBS_CHARGER_STATUS_BATTERY_PRESENT))
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		else if (reg & SBS_CHARGER_STATUS_AC_PRESENT &&
+			 !(reg & SBS_CHARGER_STATUS_CHARGE_INHIBITED))
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+		else
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+
 		break;
-	case POWER_SUPPLY_PROP_CAPACITY:
-		val->intval = chip->soc;
+
+	case POWER_SUPPLY_PROP_HEALTH:
+		if (reg & SBS_CHARGER_STATUS_RES_COLD)
+			val->intval = POWER_SUPPLY_HEALTH_COLD;
+		if (reg & SBS_CHARGER_STATUS_RES_HOT)
+			val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
+		else
+			val->intval = POWER_SUPPLY_HEALTH_GOOD;
+
 		break;
+
 	default:
 		return -EINVAL;
 	}
 
-    printk(KERN_NOTICE "%s,psp:%d,val:%d\n",__func__,psp,val->intval);
 	return 0;
 }
 
-static irqreturn_t ip5328p_isr(int irq, void* data)
+static int sbs_check_state(struct sbs_info *chip)
 {
-    struct ip5328p_chip *chip = (struct ip5328p_chip *)data;
-    //struct i2c_client *client = chip->client;
+	unsigned int reg;
+	int ret;
 
-    printk(KERN_INFO "TODO::%s[%d,0x%08x]**********\n", __func__,irq,(u32)data);
-    chip->updateAll = 1;
-    power_supply_changed(chip->battery);
+	ret = regmap_read(chip->regmap, SBS_CHARGER_REG_STATUS, &reg);
+	if (!ret && reg != chip->last_state) {
+		chip->last_state = reg;
+		power_supply_changed(chip->power_supply);
+		return 1;
+	}
 
-    return IRQ_HANDLED;
+	return 0;
 }
 
-static void ip5328p_work(struct work_struct *work)
+static void sbs_delayed_work(struct work_struct *work)
 {
-	struct ip5328p_chip *chip;
-    struct i2c_client *client;
-    int oldsoc, oldchargEn,oldonline;
+	struct sbs_info *chip = container_of(work, struct sbs_info, work.work);
 
-	chip = container_of(work, struct ip5328p_chip, work.work);
-    client = chip->client;
-    oldsoc = chip->soc;
-    oldchargEn = chip->chargEn;
-    oldonline = chip->online;
+	sbs_check_state(chip);
 
-	ip5328p_get_vcell(client);
-	ip5328p_get_soc(client);
-	//ip5328p_get_online(client);
-	ip5328p_get_status(client);
-
-    if((oldsoc != chip->soc)||(oldchargEn != chip->chargEn)||(oldonline != chip->online))
-        power_supply_changed(chip->battery);
-
-    if((chip->soc < ip5328p_POFF_PERC) && (chip->BatLowLoopCnt > ip5328p_CHK_CNT)){
-        printk(KERN_INFO "********TODO:NOTIFY SYSTEM,POWEROFF*******\n\n");
-        kernel_power_off();
-    }
-
-	queue_delayed_work(system_power_efficient_wq, &chip->work,ip5328p_DELAY);
+	schedule_delayed_work(&chip->work,
+			      msecs_to_jiffies(SBS_CHARGER_POLL_TIME));
 }
 
-static u32 ip5328p_getValue(struct device *dev,int reg)
+static irqreturn_t sbs_irq_thread(int irq, void *data)
 {
-    int regValue=0;
-    u32 value=0;
-    struct i2c_client *client = to_i2c_client(dev);
-    switch(reg)
-    {
-        case DC1_VSET:
-            regValue=ip5328p_read_reg(client, DC1_VSET);
-            value=(((regValue&0xff)*125/10)+600);
-            break;
-         case DC2_VSET:
-            regValue=ip5328p_read_reg(client, DC2_VSET);
-            value=(((regValue&0xff)*125/10)+600);
-            break;
-         case DC3_VSET:
-            regValue=ip5328p_read_reg(client, DC3_VSET);
-            value=(((regValue&0xff)*125/10)+600);
-            break;
-         case LDO2_VSET:
-            regValue=ip5328p_read_reg(client, LDO2_VSET);
-            value=(((regValue&0xff)*25)+700);
-            break;
-        case LDO3_VSET:
-            regValue=ip5328p_read_reg(client, LDO3_VSET);
-            value=(((regValue&0xff)*25)+700);
-            break;
-        case LDO4_VSET:
-            regValue=ip5328p_read_reg(client, LDO4_VSET);
-            value=(((regValue&0xff)*25)+700);
-            break;
-        case LDO5_VSET:
-            regValue=ip5328p_read_reg(client, LDO5_VSET);
-            value=(((regValue&0xff)*25)+700);
-            break;
-        default:
-            printk("reg error!!\n");
-    }
+	struct sbs_info *chip = data;
+	int ret;
 
-    return value;
-}
-static ssize_t ip5328p_battery_DC1_show(struct device *dev,struct device_attribute *attr, char *buf)
-{
-    int ret;
-    u32 value=0;
-    value=ip5328p_getValue(dev,DC1_VSET);    
-    ret = sprintf(buf, "%d\n", value);
-    return ret;
-}
-static ssize_t ip5328p_battery_DC1_store(struct device *dev,
-                    struct device_attribute *attr,
-                    const char *buf, size_t count)
-{
-    u8 u8val;
-    int value,ret;
-    struct i2c_client *client = to_i2c_client(dev);
-    ret=kstrtoint(buf, 10, &value);
-    if((value > 3600) && (value < 600)){
-        printk( "%d is out of range!!\n",value);
-    }else{
-        u8val = (u8)((value-600)*10/125 & 0xff);//0.6V~3.6V=>0000_0000~1111_0000,step=12.5mv
-        ip5328p_write_reg(client,DC1_VSET, u8val);
-    }
-    return count;   
-}
-static ssize_t ip5328p_battery_DC2_show(struct device *dev,struct device_attribute *attr, char *buf)
-{
-    int ret;
-    u32 value=0;
-    value=ip5328p_getValue(dev,DC2_VSET);    
-    ret = sprintf(buf, "%d\n", value);
-    return ret;
-}
-static ssize_t ip5328p_battery_DC2_store(struct device *dev,
-                    struct device_attribute *attr,
-                    const char *buf, size_t count)
-{
-    u8 u8val;
-    int value,ret;
-    struct i2c_client *client = to_i2c_client(dev);
-    ret=kstrtoint(buf, 10, &value);
-    if((value > 3600) && (value < 600)){
-        printk( "%d is out of range!!\n",value);
-    }else{
-        u8val = (u8)((value-600)*10/125 & 0xff);//0.6V~3.6V=>0000_0000~1111_0000,step=12.5mv
-        ip5328p_write_reg(client,DC2_VSET, u8val);
-    }
-    return count;   
-}
-static ssize_t ip5328p_battery_DC3_show(struct device *dev,struct device_attribute *attr, char *buf)
-{
-    int ret;
-    u32 value=0;
-    value=ip5328p_getValue(dev,DC3_VSET);    
-    ret = sprintf(buf, "%d\n", value);
-    return ret;
-}
-static ssize_t ip5328p_battery_DC3_store(struct device *dev,
-                    struct device_attribute *attr,
-                    const char *buf, size_t count)
-{
-    u8 u8val;
-    int value,ret;
-    struct i2c_client *client = to_i2c_client(dev);
-    ret=kstrtoint(buf, 10, &value);
-    if((value > 3600) && (value < 600)){
-        printk( "%d is out of range!!\n",value);
-    }else{
-        u8val = (u8)((value-600)*10/125 & 0xff);//0.6V~3.6V=>0000_0000~1111_0000,step=12.5mv
-        ip5328p_write_reg(client,DC3_VSET, u8val);
-    }
-    return count;   
-}
-static ssize_t ip5328p_battery_LDO2_show(struct device *dev,struct device_attribute *attr, char *buf)
-{
-    int ret;
-    u32 value=0;
-    value=ip5328p_getValue(dev,LDO2_VSET);    
-    ret = sprintf(buf, "%d\n", value);
-    return ret;
-}
-static ssize_t ip5328p_battery_LDO2_store(struct device *dev,
-                    struct device_attribute *attr,
-                    const char *buf, size_t count)
-{
-    u8 u8val;
-    int value,ret;
-    struct i2c_client *client = to_i2c_client(dev);
-    ret=kstrtoint(buf, 10, &value);
-    if((value > 3400) && (value < 700)){
-        printk( "%d is out of range!!\n",value);
-    }else{
-        u8val = (u8)(((value-700)/25) & 0xff);//0.7V~3.4V=>0000_0000~0110_1100,step=25mv
-        ip5328p_write_reg(client,LDO2_VSET, u8val);
-    }
-    return count;   
-}
-static ssize_t ip5328p_battery_LDO3_show(struct device *dev,struct device_attribute *attr, char *buf)
-{
-    int ret;
-    u32 value=0;
-    value=ip5328p_getValue(dev,LDO3_VSET);    
-    ret = sprintf(buf, "%d\n", value);
-    return ret;
-}
-static ssize_t ip5328p_battery_LDO3_store(struct device *dev,
-                    struct device_attribute *attr,
-                    const char *buf, size_t count)
-{
-    u8 u8val;
-    int value,ret;
-    struct i2c_client *client = to_i2c_client(dev);
-    ret=kstrtoint(buf, 10, &value);
-    if((value > 3400) && (value < 700)){
-        printk( "%d is out of range!!\n",value);
-    }else{
-        u8val = (u8)(((value-700)/25) & 0xff);//0.7V~3.4V=>0000_0000~0110_1100,step=25mv
-        ip5328p_write_reg(client,LDO3_VSET, u8val);
-    }
-    return count;   
+	ret = sbs_check_state(chip);
+
+	return ret ? IRQ_HANDLED : IRQ_NONE;
 }
 
-static ssize_t ip5328p_battery_LDO4_show(struct device *dev,struct device_attribute *attr, char *buf)
-{
-    int ret;
-    u32 value=0;
-    value=ip5328p_getValue(dev,LDO4_VSET);    
-    ret = sprintf(buf, "%d\n", value);
-    return ret;
-}
-static ssize_t ip5328p_battery_LDO4_store(struct device *dev,
-                    struct device_attribute *attr,
-                    const char *buf, size_t count)
-{
-    u8 u8val;
-    int value,ret;
-    struct i2c_client *client = to_i2c_client(dev);
-    ret=kstrtoint(buf, 10, &value);
-    if((value > 3400) && (value < 700)){
-        printk( "%d is out of range!!\n",value);
-    }else{
-        u8val = (u8)(((value-700)/25) & 0xff);//0.7V~3.4V=>0000_0000~0110_1100,step=25mv
-        ip5328p_write_reg(client,LDO4_VSET, u8val);
-    }
-    return count;   
-}
-
-static ssize_t ip5328p_battery_LDO5_show(struct device *dev,struct device_attribute *attr, char *buf)
-{
-    int ret;
-    u32 value=0;
-    value=ip5328p_getValue(dev,LDO5_VSET);    
-    ret = sprintf(buf, "%d\n", value);
-    return ret;
-}
-static ssize_t ip5328p_battery_LDO5_store(struct device *dev,
-                    struct device_attribute *attr,
-                    const char *buf, size_t count)
-{
-    u8 u8val;
-    int value,ret;
-    struct i2c_client *client = to_i2c_client(dev);
-    ret=kstrtoint(buf, 10, &value);
-    if((value > 3400) && (value < 700)){
-        printk( "%d is out of range!!\n",value);
-    }else{
-        u8val = (u8)(((value-700)/25) & 0xff);//0.7V~3.4V=>0000_0000~0110_1100,step=25mv
-        ip5328p_write_reg(client,LDO5_VSET, u8val);
-    }
-    return count;   
-}
-
-
-static DEVICE_ATTR(DC1_VSET,                0660,  ip5328p_battery_DC1_show,             ip5328p_battery_DC1_store);
-static DEVICE_ATTR(DC2_VSET,                0660,  ip5328p_battery_DC2_show,             ip5328p_battery_DC2_store);
-static DEVICE_ATTR(DC3_VSET,                0660,  ip5328p_battery_DC3_show,             ip5328p_battery_DC3_store);
-static DEVICE_ATTR(LDO2_VSET,               0660,  ip5328p_battery_LDO2_show,            ip5328p_battery_LDO2_store);
-static DEVICE_ATTR(LDO3_VSET,               0660,  ip5328p_battery_LDO3_show,            ip5328p_battery_LDO3_store);
-static DEVICE_ATTR(LDO4_VSET,               0660,  ip5328p_battery_LDO4_show,            ip5328p_battery_LDO4_store);
-static DEVICE_ATTR(LDO5_VSET,               0660,  ip5328p_battery_LDO5_show,            ip5328p_battery_LDO5_store);
-
-static struct attribute *ip5328p_attributes[] = {
-    &dev_attr_DC1_VSET.attr,
-    &dev_attr_DC2_VSET.attr,
-    &dev_attr_DC3_VSET.attr,
-    &dev_attr_LDO2_VSET.attr,
-    &dev_attr_LDO3_VSET.attr,
-    &dev_attr_LDO4_VSET.attr,
-    &dev_attr_LDO5_VSET.attr,
-    NULL
-};
-
-static const struct attribute_group ip5328p_attr_group = {
-    .name   = "ip5328p",
-    .attrs  = ip5328p_attributes,
-};
-
-
-static enum power_supply_property ip5328p_battery_props[] = {
+static enum power_supply_property sbs_properties[] = {
 	POWER_SUPPLY_PROP_STATUS,
+	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
-	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_HEALTH,
 };
 
-static const struct power_supply_desc ip5328p_battery_desc = {
-	.name		= "battery",
-	.type		= POWER_SUPPLY_TYPE_BATTERY,
-	.get_property = ip5328p_get_property,
-	.properties	= ip5328p_battery_props,
-	.num_properties	= ARRAY_SIZE(ip5328p_battery_props),
-};
-
-static int ip5328p_probe(struct i2c_client *client,
-			const struct i2c_device_id *id)
+static bool sbs_readable_reg(struct device *dev, unsigned int reg)
 {
-    int err;
-	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
+	return reg >= SBS_CHARGER_REG_SPEC_INFO;
+}
+
+static bool sbs_volatile_reg(struct device *dev, unsigned int reg)
+{
+	switch (reg) {
+	case SBS_CHARGER_REG_STATUS:
+		return true;
+	}
+
+	return false;
+}
+
+static const struct regmap_config sbs_regmap = {
+	.reg_bits	= 8,
+	.val_bits	= 16,
+	.max_register	= SBS_CHARGER_REG_ALARM_WARNING,
+	.readable_reg	= sbs_readable_reg,
+	.volatile_reg	= sbs_volatile_reg,
+	.val_format_endian = REGMAP_ENDIAN_LITTLE, /* since based on SMBus */
+};
+
+static const struct power_supply_desc sbs_desc = {
+	.name = "ip5328p",
+	.type = POWER_SUPPLY_TYPE_MAINS,
+	.properties = sbs_properties,
+	.num_properties = ARRAY_SIZE(sbs_properties),
+	.get_property = sbs_get_property,
+};
+
+static int sbs_probe(struct i2c_client *client,
+		     const struct i2c_device_id *id)
+{
 	struct power_supply_config psy_cfg = {};
-	struct ip5328p_chip *chip;
+	struct sbs_info *chip;
+	int ret, val;
 
-
-	printk("11111111111111111111111111111111111111");
-
-    printk(KERN_NOTICE "%s,%d,iic dev:%s\n",__func__,__LINE__,client->name);
-
-	if(!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE))
-		return -EIO;
-
-	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
-	if(!chip)
+	chip = devm_kzalloc(&client->dev, sizeof(struct sbs_info), GFP_KERNEL);
+	if (!chip)
 		return -ENOMEM;
 
 	chip->client = client;
-	chip->pdata = client->dev.platform_data;
-
-	i2c_set_clientdata(client, chip);
+	psy_cfg.of_node = client->dev.of_node;
 	psy_cfg.drv_data = chip;
 
-	chip->battery = power_supply_register(&client->dev,&ip5328p_battery_desc, &psy_cfg);
-	if(IS_ERR(chip->battery)) {
-		dev_err(&client->dev, "failed: power supply register\n");
-		return PTR_ERR(chip->battery);
+	i2c_set_clientdata(client, chip);
+
+	chip->regmap = devm_regmap_init_i2c(client, &sbs_regmap);
+	if (IS_ERR(chip->regmap))
+		return PTR_ERR(chip->regmap);
+
+	/*
+	 * Before we register, we need to make sure we can actually talk
+	 * to the battery.
+	 */
+	ret = regmap_read(chip->regmap, SBS_CHARGER_REG_STATUS, &val);
+	if (ret) {
+		dev_err(&client->dev, "Failed to get device status\n");
+		return ret;
+	}
+	chip->last_state = val;
+
+	chip->power_supply = devm_power_supply_register(&client->dev, &sbs_desc,
+							&psy_cfg);
+	if (IS_ERR(chip->power_supply)) {
+		dev_err(&client->dev, "Failed to register power supply\n");
+		return PTR_ERR(chip->power_supply);
 	}
 
-	ip5328p_reset(client);
-	ip5328p_get_version(client);
-    ip5328p_Initialize(client);
-    ip5328p_get_battery_assemble(client);
-    ip5328p_get_init_online(client);
+	/*
+	 * The ip5328p spec doesn't impose the use of an interrupt. So in
+	 * the case it wasn't provided we use polling in order get the charger's
+	 * status.
+	 */
+	if (client->irq) {
+		ret = devm_request_threaded_irq(&client->dev, client->irq,
+					NULL, sbs_irq_thread,
+					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					dev_name(&client->dev), chip);
+		if (ret) {
+			dev_err(&client->dev, "Failed to request irq, %d\n", ret);
+			return ret;
+		}
+	} else {
+		INIT_DELAYED_WORK(&chip->work, sbs_delayed_work);
+		schedule_delayed_work(&chip->work,
+				      msecs_to_jiffies(SBS_CHARGER_POLL_TIME));
+	}
 
-    // Retrieve IRQ
-    of_property_read_u32(client->dev.of_node, "pmu_irq_gpio", &chip->irq);
-    if (chip->irq <= 0) {
-        dev_err(&client->dev, "dts can't find IRQ, PAD_PM_LED0 is by default\n");
-        err = -ENODEV;
-        //chip->irq = PAD_FUART_CTS;//for debug
-    }
-    else
-    {
-        int irq_num = 0;
-        printk(KERN_INFO "pmu_irq_gpio[%d] ...\n", chip->irq);
-        if (gpio_direction_input(chip->irq) < 0) {
-            dev_err(&client->dev, "gpio_direction_input[%d] failed...\n", chip->irq);
-        }
-        // Register a ISR
-        irq_num = gpio_to_irq(chip->irq);
-        err = request_irq(irq_num, ip5328p_isr, IRQF_TRIGGER_HIGH/*IRQF_SHARED*/, "pmu isr", chip);
-        if (err != 0) {
-            dev_err(&client->dev, "request pmu isr failed (irq: %d, errno:%d)\n", chip->irq, err);
-            err = -ENODEV;
-        }
-    }
-
-    /* Sys Attribute Register */
-    err = sysfs_create_group(&client->dev.kobj, &ip5328p_attr_group);
-    if (!err) {
-        dev_err(&client->dev,"create device file failed!\n");
-    }
-
-    g_chip = chip;
-    pm_power_off = ip5328p_poweroff_enter;
-
-	INIT_DEFERRABLE_WORK(&chip->work, ip5328p_work);
-	queue_delayed_work(system_power_efficient_wq, &chip->work, ip5328p_DELAY);
+	dev_info(&client->dev,
+		 "%s: smart charger device registered\n", client->name);
 
 	return 0;
 }
 
-static int ip5328p_remove(struct i2c_client *client)
+static int sbs_remove(struct i2c_client *client)
 {
-	struct ip5328p_chip *chip = i2c_get_clientdata(client);
-	power_supply_unregister(chip->battery);
-	cancel_delayed_work(&chip->work);
-    sysfs_remove_group(&client->dev.kobj, &ip5328p_attr_group);
+	struct sbs_info *chip = i2c_get_clientdata(client);
+
+	cancel_delayed_work_sync(&chip->work);
+
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
+#ifdef CONFIG_OF
+static const struct of_device_id sbs_dt_ids[] = {
+	{ .compatible = "injoinic,ip5328p" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, sbs_dt_ids);
+#endif
 
-static int ip5328p_suspend(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct ip5328p_chip *chip = i2c_get_clientdata(client);
-
-	cancel_delayed_work(&chip->work);
-	return 0;
-}
-
-static int ip5328p_resume(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct ip5328p_chip *chip = i2c_get_clientdata(client);
-
-	queue_delayed_work(system_power_efficient_wq, &chip->work,  ip5328p_DELAY);
-	return 0;
-}
-
-static SIMPLE_DEV_PM_OPS(ip5328p_pm_ops, ip5328p_suspend, ip5328p_resume);
-#define ip5328p_PM_OPS (&ip5328p_pm_ops)
-
-#else
-
-#define ip5328p_PM_OPS NULL
-
-#endif /* CONFIG_PM_SLEEP */
-
-static const struct i2c_device_id ip5328p_id[] = {
-	{ "ip5328p" },
+static const struct i2c_device_id sbs_id[] = {
+	{ "ip5328p", 0 },
 	{ }
 };
-MODULE_DEVICE_TABLE(i2c, ip5328p_id);
+MODULE_DEVICE_TABLE(i2c, sbs_id);
 
-static const struct of_device_id Injoinic_of_match[] = {
-    { .compatible = "Injoinic,ip5328p", },
-    { }
-};
-
-static struct i2c_driver ip5328p_i2c_driver = {
-    .class = I2C_CLASS_HWMON,
-	.driver	= {
+static struct i2c_driver sbs_driver = {
+	.probe		= sbs_probe,
+	.remove		= sbs_remove,
+	.id_table	= sbs_id,
+	.driver = {
 		.name	= "ip5328p",
-		.pm	= ip5328p_PM_OPS,
-		.of_match_table = Injoinic_of_match,
+		.of_match_table = of_match_ptr(sbs_dt_ids),
 	},
-	.probe		= ip5328p_probe,
-	.remove		= ip5328p_remove,
-	.id_table	= ip5328p_id,
 };
-module_i2c_driver(ip5328p_i2c_driver);
+module_i2c_driver(sbs_driver);
 
-MODULE_AUTHOR("QinLei <lei.qin@sigmastar.com.cn>");
-MODULE_DESCRIPTION("ip5328p Fuel Gauge");
-MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Nicolas Saenz Julienne <nicolassaenzj@gmail.com>");
+MODULE_DESCRIPTION("SBS smart charger driver");
+MODULE_LICENSE("GPL v2");
+
