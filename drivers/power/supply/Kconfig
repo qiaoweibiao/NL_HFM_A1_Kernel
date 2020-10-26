@@ -201,12 +201,11 @@ config BATTERY_BQ27XXX_I2C
 
 
 
-config IP5328P_BAT
-	tristate "IP5328P_BAT I2C support"
+config IP5328P
+	tristate "Injoinic IP5328P Fuel Gauge"
 	depends on I2C
-	default y
 	help
-	  Say Y here to enable support for batteries with IP5328P_BAT chips
+	  Say Y here to enable support for batteries with IP5328P chips
 	  connected over an I2C bus.
 
 
