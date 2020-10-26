@@ -17,7 +17,9 @@
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <asm-generic/unaligned.h>
 #include <asm/unaligned.h>
+
 
 #include <linux/power/bq27xxx_battery.h>
 
@@ -147,11 +149,12 @@ static int bq27xxx_battery_i2c_bulk_write(struct bq27xxx_device_info *di,
 static int bq27xxx_battery_i2c_probe(struct i2c_client *client,
 				     const struct i2c_device_id *id)
 {
+	printk("qwb007 bat IP5328P probe start");
 	struct bq27xxx_device_info *di;
 	int ret;
 	char *name;
 	int num;
-	printk("qwb007 bat IP5328P");
+	
 	/* Get new ID for the new battery device */
 	mutex_lock(&battery_mutex);
 	num = idr_alloc(&battery_id, client, 0, 0, GFP_KERNEL);
@@ -173,6 +176,7 @@ static int bq27xxx_battery_i2c_probe(struct i2c_client *client,
 	di->name = name;
 
 	di->bus.read = bq27xxx_battery_i2c_read;
+	printk("qwb007 bat IP5328P bq27xxx_battery_i2c_read = d%\n",di);
 	di->bus.write = bq27xxx_battery_i2c_write;
 	di->bus.read_bulk = bq27xxx_battery_i2c_bulk_read;
 	di->bus.write_bulk = bq27xxx_battery_i2c_bulk_write;
@@ -226,7 +230,7 @@ static int bq27xxx_battery_i2c_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id bq27xxx_i2c_id_table[] = {
-	{ "ip5328p",0},
+	{ "ip5328p",0xEA},
 	{},
 };
 MODULE_DEVICE_TABLE(i2c, bq27xxx_i2c_id_table);
