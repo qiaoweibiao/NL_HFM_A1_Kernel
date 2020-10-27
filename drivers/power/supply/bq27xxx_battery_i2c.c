@@ -212,6 +212,7 @@ err_failed:
 	return ret;
 }
 
+
 static int bq27xxx_battery_i2c_remove(struct i2c_client *client)
 {
 	struct bq27xxx_device_info *di = i2c_get_clientdata(client);

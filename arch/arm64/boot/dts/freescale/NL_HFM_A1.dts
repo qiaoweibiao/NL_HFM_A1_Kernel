@@ -681,9 +681,12 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4>;
 	status = "okay";
-	ip5328p: ip5328p@EA {/*IP5328P@EA*/
+	
+	ip5328p@75 {//0xEA:1110 1010 8bit address 每次写数据都需要先读出 然后按位与将需要的位赋值 7bit 0111 0101
 	compatible = "injoinic,ip5328p"; //ip5328p
-	reg = <0xEA>; 
+	pinctrl-names = "defaults";
+	//pinctrl-0 = <&pinctrl_i2c4>;
+	reg = <0x75>; 
 	//ip5328p,B_IC_KEY = <&gpio1 15 GPIO_ACTIVE_HIGH>;//
 	//ip5328p,USB2_VBUS =     USB2_VBUS   可以检测usb的插入以及是 host 还是 device
 
