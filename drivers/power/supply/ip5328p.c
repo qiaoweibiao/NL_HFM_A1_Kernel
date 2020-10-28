@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  *
  * Datasheets:
- * http://www.ti.com/product/bq24250
+ * http://www.ti.com/product/ip5328p
  * http://www.ti.com/product/bq24251
  * http://www.ti.com/product/ip5328p
  */
@@ -957,11 +957,6 @@ static int ip5328p_fw_probe(struct ip5328p_device *bq)
 static int ip5328p_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
-	while(1){
-
-printk("1111111111111111111111111111111111111111");
-
-	}
 
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct device *dev = &client->dev;
@@ -1026,11 +1021,11 @@ printk("1111111111111111111111111111111111111111");
 	}
 
 	/*
-	 * The BQ24250 doesn't support the D+/D- based charger type detection
+	 * The ip5328p doesn't support the D+/D- based charger type detection
 	 * used for the automatic setting of the input current limit setting so
 	 * explicitly disable that feature.
 	 */
-	if (bq->chip == BQ24250)
+	if (bq->chip == ip5328p)
 		bq->iilimit_autoset_enable = false;
 
 	if (bq->iilimit_autoset_enable)
@@ -1038,12 +1033,12 @@ printk("1111111111111111111111111111111111111111");
 				  ip5328p_iilimit_setup_work);
 
 	/*
-	 * The BQ24250 doesn't have a dedicated Power Good (PG) pin so let's
+	 * The ip5328p doesn't have a dedicated Power Good (PG) pin so let's
 	 * not probe for it and instead use a SW-based approach to determine
 	 * the PG state. We also use a SW-based approach for all other devices
 	 * if the PG pin is either not defined or can't be probed.
 	 */
-	if (bq->chip != BQ24250)
+	if (bq->chip != ip5328p)
 		ip5328p_pg_gpio_probe(bq);
 
 	if (PTR_ERR(bq->pg) == -EPROBE_DEFER)
@@ -1157,35 +1152,29 @@ static const struct dev_pm_ops ip5328p_pm = {
 	SET_SYSTEM_SLEEP_PM_OPS(ip5328p_suspend, ip5328p_resume)
 };
 
-
-
-static const struct of_device_id of_ip5328p__match[] = {
-	{ .compatible = "injoinic,ip5328p", },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, of_ip5328p__match);
-
-
-
 static const struct i2c_device_id ip5328p_i2c_ids[] = {
-	{ "ip5328p", ip50328p },
+	{ "ip5328p", ip5328p },
 	{},
 };
 MODULE_DEVICE_TABLE(i2c, ip5328p_i2c_ids);
 
+static const struct of_device_id ip5328p_of_match[] = {
+	{ .compatible = "injoinic,ip5328p", },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, ip5328p_of_match);
 
-
-//static const struct acpi_device_id ip5328p_acpi_match[] = {
-//	{ "ip5328p", ip5328p },
-//	{},
-//};
+static const struct acpi_device_id ip5328p_acpi_match[] = {
+	{ "ip5328p", ip5328p },
+	{},
+};
 MODULE_DEVICE_TABLE(acpi, ip5328p_acpi_match);
 
 static struct i2c_driver ip5328p_driver = {
 	.driver = {
 		.name = "ip5328p",
-		.of_match_table = of_match_ptr(of_ip5328p__match),
-		//.acpi_match_table = ACPI_PTR(ip5328p_acpi_match),
+		.of_match_table = of_match_ptr(ip5328p_of_match),
+		.acpi_match_table = ACPI_PTR(ip5328p_acpi_match),
 		.pm = &ip5328p_pm,
 	},
 	.probe = ip5328p_probe,

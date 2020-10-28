@@ -125,6 +125,7 @@ struct i2c_client *of_find_i2c_device_by_node(struct device_node *node)
 	struct i2c_client *client;
 
 	dev = bus_find_device(&i2c_bus_type, NULL, node, of_dev_node_match);
+	printk("11111111111111111111111111111111111111111");
 	if (!dev)
 		return NULL;
 
@@ -143,6 +144,7 @@ struct i2c_adapter *of_find_i2c_adapter_by_node(struct device_node *node)
 	struct i2c_adapter *adapter;
 
 	dev = bus_find_device(&i2c_bus_type, NULL, node, of_dev_node_match);
+	printk("222222222222222222222222222222222222222222222");
 	if (!dev)
 		return NULL;
 
