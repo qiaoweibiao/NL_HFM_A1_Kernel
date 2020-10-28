@@ -1,5 +1,5 @@
 #!/bin/sh
 git add .
-git commit -m"the code of ip5328p can enter probe"
+git commit -m"ip5328P cannot read chip ID "
 git pull origin master
 git push origin master

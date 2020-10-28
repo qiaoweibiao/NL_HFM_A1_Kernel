@@ -13,10 +13,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * Datasheets:
- * http://www.ti.com/product/ip5328p
- * http://www.ti.com/product/bq24251
- * http://www.ti.com/product/ip5328p
  */
 
 #include <linux/module.h>
@@ -27,61 +23,67 @@
 #include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/usb/phy.h>
 
 #include <linux/acpi.h>
 #include <linux/of.h>
 
-#define ip5328p_REG_1			0x00
-#define ip5328p_REG_2			0x01
-#define ip5328p_REG_3			0x02
-#define ip5328p_REG_4			0x03
-#define ip5328p_REG_5			0x04
-#define ip5328p_REG_6			0x05
-#define ip5328p_REG_7			0x06
+#define ip5328p_MANUFACTURER		"injoinic"
+#define ip5328p_IRQ_PIN			"ip5328p_irq"
 
-#define ip5328p_MANUFACTURER		"Texas Instruments"
-#define ip5328p_PG_GPIO			"pg"
-
-#define ip5328p_ILIM_SET_DELAY		1000	/* msec */
-
-/*
- * When adding support for new devices make sure that enum ip5328p_chip and
- * ip5328p_chip_name[] always stay in sync!
- */
-enum ip5328p_chip {
-	ip5328p,
-};
-
-static const char *const ip5328p_chip_name[] = {
-	"ip5328p",
-};
+#define ip5328p_ID			0x69 //3
 
 enum ip5328p_fields {
-	F_WD_FAULT, F_WD_EN, F_STAT, F_FAULT,			    /* REG 1 */
-	F_RESET, F_IILIMIT, F_EN_STAT, F_EN_TERM, F_CE, F_HZ_MODE,  /* REG 2 */
-	F_VBAT, F_USB_DET,					    /* REG 3 */
-	F_ICHG, F_ITERM,					    /* REG 4 */
-	F_LOOP_STATUS, F_LOW_CHG, F_DPDM_EN, F_CE_STATUS, F_VINDPM, /* REG 5 */
-	F_X2_TMR_EN, F_TMR, F_SYSOFF, F_TS_EN, F_TS_STAT,	    /* REG 6 */
-	F_VOVP, F_CLR_VDP, F_FORCE_BATDET, F_FORCE_PTM,		    /* REG 7 */
+	F_EN_HIZ, F_EN_ILIM, F_IILIM,				     /* Reg00 */
+	F_BHOT, F_BCOLD, F_VINDPM_OFS,				     /* Reg01 */
+	F_CONV_START, F_CONV_RATE, F_BOOSTF, F_ICO_EN,
+	F_HVDCP_EN, F_MAXC_EN, F_FORCE_DPM, F_AUTO_DPDM_EN,	     /* Reg02 */
+	F_BAT_LOAD_EN, F_WD_RST, F_OTG_CFG, F_CHG_CFG, F_SYSVMIN,    /* Reg03 */
+	F_PUMPX_EN, F_ICHG,					     /* Reg04 */
+	F_IPRECHG, F_ITERM,					     /* Reg05 */
+	F_VREG, F_BATLOWV, F_VRECHG,				     /* Reg06 */
+	F_TERM_EN, F_STAT_DIS, F_WD, F_TMR_EN, F_CHG_TMR,
+	F_JEITA_ISET,						     /* Reg07 */
+	F_BATCMP, F_VCLAMP, F_TREG,				     /* Reg08 */
+	F_FORCE_ICO, F_TMR2X_EN, F_BATFET_DIS, F_JEITA_VSET,
+	F_BATFET_DLY, F_BATFET_RST_EN, F_PUMPX_UP, F_PUMPX_DN,	     /* Reg09 */
+	F_BOOSTV, F_BOOSTI,					     /* Reg0A */
+	F_VBUS_STAT, F_CHG_STAT, F_PG_STAT, F_SDP_STAT, F_VSYS_STAT, /* Reg0B */
+	F_WD_FAULT, F_BOOST_FAULT, F_CHG_FAULT, F_BAT_FAULT,
+	F_NTC_FAULT,						     /* Reg0C */
+	F_FORCE_VINDPM, F_VINDPM,				     /* Reg0D */
+	F_THERM_STAT, F_BATV,					     /* Reg0E */
+	F_SYSV,							     /* Reg0F */
+	F_TSPCT,						     /* Reg10 */
+	F_VBUS_GD, F_VBUSV,					     /* Reg11 */
+	F_ICHGR,						     /* Reg12 */
+	F_VDPM_STAT, F_IDPM_STAT, F_IDPM_LIM,			     /* Reg13 */
+	F_REG_RST, F_ICO_OPTIMIZED, F_PN, F_TS_PROFILE, F_DEV_REV,   /* Reg14 */
 
 	F_MAX_FIELDS
 };
 
-/* initial field values, converted from uV/uA */
+/* initial field values, converted to register values */
 struct ip5328p_init_data {
-	u8 ichg;	/* charge current      */
-	u8 vbat;	/* regulation voltage  */
-	u8 iterm;	/* termination current */
-	u8 iilimit;	/* input current limit */
-	u8 vovp;	/* over voltage protection voltage */
-	u8 vindpm;	/* VDMP input threshold voltage */
+	u8 ichg;	/* charge current		*/
+	u8 vreg;	/* regulation voltage		*/
+	u8 iterm;	/* termination current		*/
+	u8 iprechg;	/* precharge current		*/
+	u8 sysvmin;	/* minimum system voltage limit */
+	u8 boostv;	/* boost regulation voltage	*/
+	u8 boosti;	/* boost current limit		*/
+	u8 boostf;	/* boost frequency		*/
+	u8 ilim_en;	/* enable ILIM pin		*/
+	u8 treg;	/* thermal regulation threshold */
 };
 
 struct ip5328p_state {
-	u8 status;
-	u8 fault;
-	bool power_good;
+	u8 online;
+	u8 chrg_status;
+	u8 chrg_fault;
+	u8 vsys_status;
+	u8 boost_fault;
+	u8 bat_fault;
 };
 
 struct ip5328p_device {
@@ -89,128 +91,211 @@ struct ip5328p_device {
 	struct device *dev;
 	struct power_supply *charger;
 
-	enum ip5328p_chip chip;
+	struct usb_phy *usb_phy;
+	struct notifier_block usb_nb;
+	struct work_struct usb_work;
+	unsigned long usb_event;
 
 	struct regmap *rmap;
 	struct regmap_field *rmap_fields[F_MAX_FIELDS];
 
-	struct gpio_desc *pg;
-
-	struct delayed_work iilimit_setup_work;
-
+	int chip_id;
 	struct ip5328p_init_data init_data;
 	struct ip5328p_state state;
 
 	struct mutex lock; /* protect state data */
-
-	bool iilimit_autoset_enable;
 };
 
-static bool ip5328p_is_volatile_reg(struct device *dev, unsigned int reg)
-{
-	switch (reg) {
-	case ip5328p_REG_2:
-	case ip5328p_REG_4:
-		return false;
+static const struct regmap_range ip5328p_readonly_reg_ranges[] = {
+	regmap_reg_range(0x0b, 0x0c),
+	regmap_reg_range(0x0e, 0x13),
+};
 
-	default:
-		return true;
-	}
-}
+static const struct regmap_access_table ip5328p_writeable_regs = {
+	.no_ranges = ip5328p_readonly_reg_ranges,
+	.n_no_ranges = ARRAY_SIZE(ip5328p_readonly_reg_ranges),
+};
+
+static const struct regmap_range ip5328p_volatile_reg_ranges[] = {
+	regmap_reg_range(0x00, 0x00),
+	regmap_reg_range(0x09, 0x09),
+	regmap_reg_range(0x0b, 0x0c),
+	regmap_reg_range(0x0e, 0x14),
+};
+
+static const struct regmap_access_table ip5328p_volatile_regs = {
+	.yes_ranges = ip5328p_volatile_reg_ranges,
+	.n_yes_ranges = ARRAY_SIZE(ip5328p_volatile_reg_ranges),
+};
 
 static const struct regmap_config ip5328p_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 
-	.max_register = ip5328p_REG_7,
+	.max_register = 0x14,
 	.cache_type = REGCACHE_RBTREE,
 
-	.volatile_reg = ip5328p_is_volatile_reg,
+	.wr_table = &ip5328p_writeable_regs,
+	.volatile_table = &ip5328p_volatile_regs,
 };
 
 static const struct reg_field ip5328p_reg_fields[] = {
-	/* REG 1 */
-	[F_WD_FAULT]		= REG_FIELD(ip5328p_REG_1, 7, 7),
-	[F_WD_EN]		= REG_FIELD(ip5328p_REG_1, 6, 6),
-	[F_STAT]		= REG_FIELD(ip5328p_REG_1, 4, 5),
-	[F_FAULT]		= REG_FIELD(ip5328p_REG_1, 0, 3),
-	/* REG 2 */
-	[F_RESET]		= REG_FIELD(ip5328p_REG_2, 7, 7),
-	[F_IILIMIT]		= REG_FIELD(ip5328p_REG_2, 4, 6),
-	[F_EN_STAT]		= REG_FIELD(ip5328p_REG_2, 3, 3),
-	[F_EN_TERM]		= REG_FIELD(ip5328p_REG_2, 2, 2),
-	[F_CE]			= REG_FIELD(ip5328p_REG_2, 1, 1),
-	[F_HZ_MODE]		= REG_FIELD(ip5328p_REG_2, 0, 0),
-	/* REG 3 */
-	[F_VBAT]		= REG_FIELD(ip5328p_REG_3, 2, 7),
-	[F_USB_DET]		= REG_FIELD(ip5328p_REG_3, 0, 1),
-	/* REG 4 */
-	[F_ICHG]		= REG_FIELD(ip5328p_REG_4, 3, 7),
-	[F_ITERM]		= REG_FIELD(ip5328p_REG_4, 0, 2),
-	/* REG 5 */
-	[F_LOOP_STATUS]		= REG_FIELD(ip5328p_REG_5, 6, 7),
-	[F_LOW_CHG]		= REG_FIELD(ip5328p_REG_5, 5, 5),
-	[F_DPDM_EN]		= REG_FIELD(ip5328p_REG_5, 4, 4),
-	[F_CE_STATUS]		= REG_FIELD(ip5328p_REG_5, 3, 3),
-	[F_VINDPM]		= REG_FIELD(ip5328p_REG_5, 0, 2),
-	/* REG 6 */
-	[F_X2_TMR_EN]		= REG_FIELD(ip5328p_REG_6, 7, 7),
-	[F_TMR]			= REG_FIELD(ip5328p_REG_6, 5, 6),
-	[F_SYSOFF]		= REG_FIELD(ip5328p_REG_6, 4, 4),
-	[F_TS_EN]		= REG_FIELD(ip5328p_REG_6, 3, 3),
-	[F_TS_STAT]		= REG_FIELD(ip5328p_REG_6, 0, 2),
-	/* REG 7 */
-	[F_VOVP]		= REG_FIELD(ip5328p_REG_7, 5, 7),
-	[F_CLR_VDP]		= REG_FIELD(ip5328p_REG_7, 4, 4),
-	[F_FORCE_BATDET]	= REG_FIELD(ip5328p_REG_7, 3, 3),
-	[F_FORCE_PTM]		= REG_FIELD(ip5328p_REG_7, 2, 2)
+	/* REG00 */
+	[F_EN_HIZ]		= REG_FIELD(0x00, 7, 7),
+	[F_EN_ILIM]		= REG_FIELD(0x00, 6, 6),
+	[F_IILIM]		= REG_FIELD(0x00, 0, 5),
+	/* REG01 */
+	[F_BHOT]		= REG_FIELD(0x01, 6, 7),
+	[F_BCOLD]		= REG_FIELD(0x01, 5, 5),
+	[F_VINDPM_OFS]		= REG_FIELD(0x01, 0, 4),
+	/* REG02 */
+	[F_CONV_START]		= REG_FIELD(0x02, 7, 7),
+	[F_CONV_RATE]		= REG_FIELD(0x02, 6, 6),
+	[F_BOOSTF]		= REG_FIELD(0x02, 5, 5),
+	[F_ICO_EN]		= REG_FIELD(0x02, 4, 4),
+	[F_HVDCP_EN]		= REG_FIELD(0x02, 3, 3),
+	[F_MAXC_EN]		= REG_FIELD(0x02, 2, 2),
+	[F_FORCE_DPM]		= REG_FIELD(0x02, 1, 1),
+	[F_AUTO_DPDM_EN]	= REG_FIELD(0x02, 0, 0),
+	/* REG03 */
+	[F_BAT_LOAD_EN]		= REG_FIELD(0x03, 7, 7),
+	[F_WD_RST]		= REG_FIELD(0x03, 6, 6),
+	[F_OTG_CFG]		= REG_FIELD(0x03, 5, 5),
+	[F_CHG_CFG]		= REG_FIELD(0x03, 4, 4),
+	[F_SYSVMIN]		= REG_FIELD(0x03, 1, 3),
+	/* REG04 */
+	[F_PUMPX_EN]		= REG_FIELD(0x04, 7, 7),
+	[F_ICHG]		= REG_FIELD(0x04, 0, 6),
+	/* REG05 */
+	[F_IPRECHG]		= REG_FIELD(0x05, 4, 7),
+	[F_ITERM]		= REG_FIELD(0x05, 0, 3),
+	/* REG06 */
+	[F_VREG]		= REG_FIELD(0x06, 2, 7),
+	[F_BATLOWV]		= REG_FIELD(0x06, 1, 1),
+	[F_VRECHG]		= REG_FIELD(0x06, 0, 0),
+	/* REG07 */
+	[F_TERM_EN]		= REG_FIELD(0x07, 7, 7),
+	[F_STAT_DIS]		= REG_FIELD(0x07, 6, 6),
+	[F_WD]			= REG_FIELD(0x07, 4, 5),
+	[F_TMR_EN]		= REG_FIELD(0x07, 3, 3),
+	[F_CHG_TMR]		= REG_FIELD(0x07, 1, 2),
+	[F_JEITA_ISET]		= REG_FIELD(0x07, 0, 0),
+	/* REG08 */
+	[F_BATCMP]		= REG_FIELD(0x08, 6, 7),
+	[F_VCLAMP]		= REG_FIELD(0x08, 2, 4),
+	[F_TREG]		= REG_FIELD(0x08, 0, 1),
+	/* REG09 */
+	[F_FORCE_ICO]		= REG_FIELD(0x09, 7, 7),
+	[F_TMR2X_EN]		= REG_FIELD(0x09, 6, 6),
+	[F_BATFET_DIS]		= REG_FIELD(0x09, 5, 5),
+	[F_JEITA_VSET]		= REG_FIELD(0x09, 4, 4),
+	[F_BATFET_DLY]		= REG_FIELD(0x09, 3, 3),
+	[F_BATFET_RST_EN]	= REG_FIELD(0x09, 2, 2),
+	[F_PUMPX_UP]		= REG_FIELD(0x09, 1, 1),
+	[F_PUMPX_DN]		= REG_FIELD(0x09, 0, 0),
+	/* REG0A */
+	[F_BOOSTV]		= REG_FIELD(0x0A, 4, 7),
+	[F_BOOSTI]		= REG_FIELD(0x0A, 0, 2),
+	/* REG0B */
+	[F_VBUS_STAT]		= REG_FIELD(0x0B, 5, 7),
+	[F_CHG_STAT]		= REG_FIELD(0x0B, 3, 4),
+	[F_PG_STAT]		= REG_FIELD(0x0B, 2, 2),
+	[F_SDP_STAT]		= REG_FIELD(0x0B, 1, 1),
+	[F_VSYS_STAT]		= REG_FIELD(0x0B, 0, 0),
+	/* REG0C */
+	[F_WD_FAULT]		= REG_FIELD(0x0C, 7, 7),
+	[F_BOOST_FAULT]		= REG_FIELD(0x0C, 6, 6),
+	[F_CHG_FAULT]		= REG_FIELD(0x0C, 4, 5),
+	[F_BAT_FAULT]		= REG_FIELD(0x0C, 3, 3),
+	[F_NTC_FAULT]		= REG_FIELD(0x0C, 0, 2),
+	/* REG0D */
+	[F_FORCE_VINDPM]	= REG_FIELD(0x0D, 7, 7),
+	[F_VINDPM]		= REG_FIELD(0x0D, 0, 6),
+	/* REG0E */
+	[F_THERM_STAT]		= REG_FIELD(0x0E, 7, 7),
+	[F_BATV]		= REG_FIELD(0x0E, 0, 6),
+	/* REG0F */
+	[F_SYSV]		= REG_FIELD(0x0F, 0, 6),
+	/* REG10 */
+	[F_TSPCT]		= REG_FIELD(0x10, 0, 6),
+	/* REG11 */
+	[F_VBUS_GD]		= REG_FIELD(0x11, 7, 7),
+	[F_VBUSV]		= REG_FIELD(0x11, 0, 6),
+	/* REG12 */
+	[F_ICHGR]		= REG_FIELD(0x12, 0, 6),
+	/* REG13 */
+	[F_VDPM_STAT]		= REG_FIELD(0x13, 7, 7),
+	[F_IDPM_STAT]		= REG_FIELD(0x13, 6, 6),
+	[F_IDPM_LIM]		= REG_FIELD(0x13, 0, 5),
+	/* REG14 */
+	[F_REG_RST]		= REG_FIELD(0x14, 7, 7),
+	[F_ICO_OPTIMIZED]	= REG_FIELD(0x14, 6, 6),
+	[F_PN]			= REG_FIELD(0x14, 3, 5),
+	[F_TS_PROFILE]		= REG_FIELD(0x14, 2, 2),
+	[F_DEV_REV]		= REG_FIELD(0x14, 0, 1)
 };
 
-static const u32 ip5328p_vbat_map[] = {
-	3500000, 3520000, 3540000, 3560000, 3580000, 3600000, 3620000, 3640000,
-	3660000, 3680000, 3700000, 3720000, 3740000, 3760000, 3780000, 3800000,
-	3820000, 3840000, 3860000, 3880000, 3900000, 3920000, 3940000, 3960000,
-	3980000, 4000000, 4020000, 4040000, 4060000, 4080000, 4100000, 4120000,
-	4140000, 4160000, 4180000, 4200000, 4220000, 4240000, 4260000, 4280000,
-	4300000, 4320000, 4340000, 4360000, 4380000, 4400000, 4420000, 4440000
+/*
+ * Most of the val -> idx conversions can be computed, given the minimum,
+ * maximum and the step between values. For the rest of conversions, we use
+ * lookup tables.
+ */
+enum ip5328p_table_ids {
+	/* range tables */
+	TBL_ICHG,
+	TBL_ITERM,
+	TBL_IPRECHG,
+	TBL_VREG,
+	TBL_BATCMP,
+	TBL_VCLAMP,
+	TBL_BOOSTV,
+	TBL_SYSVMIN,
+
+	/* lookup tables */
+	TBL_TREG,
+	TBL_BOOSTI,
 };
 
-#define ip5328p_VBAT_MAP_SIZE		ARRAY_SIZE(ip5328p_vbat_map)
+/* Thermal Regulation Threshold lookup table, in degrees Celsius */
+static const u32 ip5328p_treg_tbl[] = { 60, 80, 100, 120 };
 
-static const u32 ip5328p_ichg_map[] = {
-	500000, 550000, 600000, 650000, 700000, 750000, 800000, 850000, 900000,
-	950000, 1000000, 1050000, 1100000, 1150000, 1200000, 1250000, 1300000,
-	1350000, 1400000, 1450000, 1500000, 1550000, 1600000, 1650000, 1700000,
-	1750000, 1800000, 1850000, 1900000, 1950000, 2000000
+#define ip5328p_TREG_TBL_SIZE		ARRAY_SIZE(ip5328p_treg_tbl)
+
+/* Boost mode current limit lookup table, in uA */
+static const u32 ip5328p_boosti_tbl[] = {
+	500000, 700000, 1100000, 1300000, 1600000, 1800000, 2100000, 2400000
 };
 
-#define ip5328p_ICHG_MAP_SIZE		ARRAY_SIZE(ip5328p_ichg_map)
+#define ip5328p_BOOSTI_TBL_SIZE		ARRAY_SIZE(ip5328p_boosti_tbl)
 
-static const u32 ip5328p_iterm_map[] = {
-	50000, 75000, 100000, 125000, 150000, 175000, 200000, 225000
+struct ip5328p_range {
+	u32 min;
+	u32 max;
+	u32 step;
 };
 
-#define ip5328p_ITERM_MAP_SIZE		ARRAY_SIZE(ip5328p_iterm_map)
-
-static const u32 ip5328p_iilimit_map[] = {
-	100000, 150000, 500000, 900000, 1500000, 2000000
+struct ip5328p_lookup {
+	const u32 *tbl;
+	u32 size;
 };
 
-#define ip5328p_IILIMIT_MAP_SIZE	ARRAY_SIZE(ip5328p_iilimit_map)
+static const union {
+	struct ip5328p_range  rt;
+	struct ip5328p_lookup lt;
+} ip5328p_tables[] = {
+	/* range tables */
+	[TBL_ICHG] =	{ .rt = {0,	  5056000, 64000} },	 /* uA */
+	[TBL_ITERM] =	{ .rt = {64000,   1024000, 64000} },	 /* uA */
+	[TBL_VREG] =	{ .rt = {3840000, 4608000, 16000} },	 /* uV */
+	[TBL_BATCMP] =	{ .rt = {0,	  140,     20} },	 /* mOhm */
+	[TBL_VCLAMP] =	{ .rt = {0,	  224000,  32000} },	 /* uV */
+	[TBL_BOOSTV] =	{ .rt = {4550000, 5510000, 64000} },	 /* uV */
+	[TBL_SYSVMIN] = { .rt = {3000000, 3700000, 100000} },	 /* uV */
 
-static const u32 ip5328p_vovp_map[] = {
-	6000000, 6500000, 7000000, 8000000, 9000000, 9500000, 10000000,
-	10500000
+	/* lookup tables */
+	[TBL_TREG] =	{ .lt = {ip5328p_treg_tbl, ip5328p_TREG_TBL_SIZE} },
+	[TBL_BOOSTI] =	{ .lt = {ip5328p_boosti_tbl, ip5328p_BOOSTI_TBL_SIZE} }
 };
-
-#define ip5328p_VOVP_MAP_SIZE		ARRAY_SIZE(ip5328p_vovp_map)
-
-static const u32 ip5328p_vindpm_map[] = {
-	4200000, 4280000, 4360000, 4440000, 4520000, 4600000, 4680000,
-	4760000
-};
-
-#define ip5328p_VINDPM_MAP_SIZE		ARRAY_SIZE(ip5328p_vindpm_map)
 
 static int ip5328p_field_read(struct ip5328p_device *bq,
 			      enum ip5328p_fields field_id)
@@ -231,83 +316,64 @@ static int ip5328p_field_write(struct ip5328p_device *bq,
 	return regmap_field_write(bq->rmap_fields[field_id], val);
 }
 
-static u8 ip5328p_find_idx(u32 value, const u32 *map, u8 map_size)
+static u8 ip5328p_find_idx(u32 value, enum ip5328p_table_ids id)
 {
 	u8 idx;
 
-	for (idx = 1; idx < map_size; idx++)
-		if (value < map[idx])
-			break;
+	if (id >= TBL_TREG) {
+		const u32 *tbl = ip5328p_tables[id].lt.tbl;
+		u32 tbl_size = ip5328p_tables[id].lt.size;
+
+		for (idx = 1; idx < tbl_size && tbl[idx] <= value; idx++)
+			;
+	} else {
+		const struct ip5328p_range *rtbl = &ip5328p_tables[id].rt;
+		u8 rtbl_size;
+
+		rtbl_size = (rtbl->max - rtbl->min) / rtbl->step + 1;
+
+		for (idx = 1;
+		     idx < rtbl_size && (idx * rtbl->step + rtbl->min <= value);
+		     idx++)
+			;
+	}
 
 	return idx - 1;
 }
 
+static u32 ip5328p_find_val(u8 idx, enum ip5328p_table_ids id)
+{
+	const struct ip5328p_range *rtbl;
+
+	/* lookup table? */
+	if (id >= TBL_TREG)
+		return ip5328p_tables[id].lt.tbl[idx];
+
+	/* range table */
+	rtbl = &ip5328p_tables[id].rt;
+
+	return (rtbl->min + idx * rtbl->step);
+}
+
 enum ip5328p_status {
-	STATUS_READY,
-	STATUS_CHARGE_IN_PROGRESS,
-	STATUS_CHARGE_DONE,
-	STATUS_FAULT,
+	STATUS_NOT_CHARGING,
+	STATUS_PRE_CHARGING,
+	STATUS_FAST_CHARGING,
+	STATUS_TERMINATION_DONE,
 };
 
-enum ip5328p_fault {
-	FAULT_NORMAL,
-	FAULT_INPUT_OVP,
-	FAULT_INPUT_UVLO,
-	FAULT_SLEEP,
-	FAULT_BAT_TS,
-	FAULT_BAT_OVP,
-	FAULT_TS,
-	FAULT_TIMER,
-	FAULT_NO_BAT,
-	FAULT_ISET,
-	FAULT_INPUT_LDO_LOW,
+enum ip5328p_chrg_fault {
+	CHRG_FAULT_NORMAL,
+	CHRG_FAULT_INPUT,
+	CHRG_FAULT_THERMAL_SHUTDOWN,
+	CHRG_FAULT_TIMER_EXPIRED,
 };
-
-static int ip5328p_get_input_current_limit(struct ip5328p_device *bq,
-					   union power_supply_propval *val)
-{
-	int ret;
-
-	ret = ip5328p_field_read(bq, F_IILIMIT);
-	if (ret < 0)
-		return ret;
-
-	/*
-	 * The "External ILIM" and "Production & Test" modes are not exposed
-	 * through this driver and not being covered by the lookup table.
-	 * Should such a mode have become active let's return an error rather
-	 * than exceeding the bounds of the lookup table and returning
-	 * garbage.
-	 */
-	if (ret >= ip5328p_IILIMIT_MAP_SIZE)
-		return -ENODATA;
-
-	val->intval = ip5328p_iilimit_map[ret];
-
-	return 0;
-}
-
-static int ip5328p_set_input_current_limit(struct ip5328p_device *bq,
-					const union power_supply_propval *val)
-{
-	/*
-	 * Address the case where the user manually sets an input current limit
-	 * while the charger auto-detection mechanism is is active. In this
-	 * case we want to abort and go straight to the user-specified value.
-	 */
-	if (bq->iilimit_autoset_enable)
-		cancel_delayed_work_sync(&bq->iilimit_setup_work);
-
-	return ip5328p_field_write(bq, F_IILIMIT,
-				   ip5328p_find_idx(val->intval,
-						    ip5328p_iilimit_map,
-						    ip5328p_IILIMIT_MAP_SIZE));
-}
 
 static int ip5328p_power_supply_get_property(struct power_supply *psy,
 					     enum power_supply_property psp,
 					     union power_supply_propval *val)
 {
+	int ret;
 	struct ip5328p_device *bq = power_supply_get_drvdata(psy);
 	struct ip5328p_state state;
 
@@ -317,79 +383,75 @@ static int ip5328p_power_supply_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		if (!state.power_good)
+		if (!state.online)
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
-		else if (state.status == STATUS_READY)
+		else if (state.chrg_status == STATUS_NOT_CHARGING)
 			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
-		else if (state.status == STATUS_CHARGE_IN_PROGRESS)
+		else if (state.chrg_status == STATUS_PRE_CHARGING ||
+			 state.chrg_status == STATUS_FAST_CHARGING)
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
-		else if (state.status == STATUS_CHARGE_DONE)
+		else if (state.chrg_status == STATUS_TERMINATION_DONE)
 			val->intval = POWER_SUPPLY_STATUS_FULL;
 		else
 			val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
+
 		break;
 
 	case POWER_SUPPLY_PROP_MANUFACTURER:
 		val->strval = ip5328p_MANUFACTURER;
 		break;
 
-	case POWER_SUPPLY_PROP_MODEL_NAME:
-		val->strval = ip5328p_chip_name[bq->chip];
-		break;
-
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = state.power_good;
+		val->intval = state.online;
 		break;
 
 	case POWER_SUPPLY_PROP_HEALTH:
-		switch (state.fault) {
-		case FAULT_NORMAL:
+		if (!state.chrg_fault && !state.bat_fault && !state.boost_fault)
 			val->intval = POWER_SUPPLY_HEALTH_GOOD;
-			break;
-
-		case FAULT_INPUT_OVP:
-		case FAULT_BAT_OVP:
+		else if (state.bat_fault)
 			val->intval = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
-			break;
-
-		case FAULT_TS:
-		case FAULT_BAT_TS:
-			val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
-			break;
-
-		case FAULT_TIMER:
+		else if (state.chrg_fault == CHRG_FAULT_TIMER_EXPIRED)
 			val->intval = POWER_SUPPLY_HEALTH_SAFETY_TIMER_EXPIRE;
-			break;
-
-		default:
+		else if (state.chrg_fault == CHRG_FAULT_THERMAL_SHUTDOWN)
+			val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
+		else
 			val->intval = POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
-			break;
-		}
-
 		break;
 
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
-		val->intval = ip5328p_ichg_map[bq->init_data.ichg];
+		ret = ip5328p_field_read(bq, F_ICHGR); /* read measured value */
+		if (ret < 0)
+			return ret;
+
+		/* converted_val = ADC_val * 50mA (table 10.3.19) */
+		val->intval = ret * 50000;
 		break;
 
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		val->intval = ip5328p_ichg_map[ip5328p_ICHG_MAP_SIZE - 1];
+		val->intval = ip5328p_tables[TBL_ICHG].rt.max;
 		break;
 
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
-		val->intval = ip5328p_vbat_map[bq->init_data.vbat];
+		if (!state.online) {
+			val->intval = 0;
+			break;
+		}
+
+		ret = ip5328p_field_read(bq, F_BATV); /* read measured value */
+		if (ret < 0)
+			return ret;
+
+		/* converted_val = 2.304V + ADC_val * 20mV (table 10.3.15) */
+		val->intval = 2304000 + ret * 20000;
 		break;
 
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE_MAX:
-		val->intval = ip5328p_vbat_map[ip5328p_VBAT_MAP_SIZE - 1];
+		val->intval = ip5328p_tables[TBL_VREG].rt.max;
 		break;
 
 	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
-		val->intval = ip5328p_iterm_map[bq->init_data.iterm];
+		val->intval = ip5328p_find_val(bq->init_data.iterm, TBL_ITERM);
 		break;
-
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		return ip5328p_get_input_current_limit(bq, val);
 
 	default:
 		return -EINVAL;
@@ -398,68 +460,34 @@ static int ip5328p_power_supply_get_property(struct power_supply *psy,
 	return 0;
 }
 
-static int ip5328p_power_supply_set_property(struct power_supply *psy,
-					enum power_supply_property prop,
-					const union power_supply_propval *val)
-{
-	struct ip5328p_device *bq = power_supply_get_drvdata(psy);
-
-	switch (prop) {
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		return ip5328p_set_input_current_limit(bq, val);
-	default:
-		return -EINVAL;
-	}
-}
-
-static int ip5328p_power_supply_property_is_writeable(struct power_supply *psy,
-					enum power_supply_property psp)
-{
-	switch (psp) {
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		return true;
-	default:
-		return false;
-	}
-}
-
 static int ip5328p_get_chip_state(struct ip5328p_device *bq,
 				  struct ip5328p_state *state)
 {
-	int ret;
+	int i, ret;
 
-	ret = ip5328p_field_read(bq, F_STAT);
-	if (ret < 0)
-		return ret;
+	struct {
+		enum ip5328p_fields id;
+		u8 *data;
+	} state_fields[] = {
+		{F_CHG_STAT,	&state->chrg_status},
+		{F_PG_STAT,	&state->online},
+		{F_VSYS_STAT,	&state->vsys_status},
+		{F_BOOST_FAULT, &state->boost_fault},
+		{F_BAT_FAULT,	&state->bat_fault},
+		{F_CHG_FAULT,	&state->chrg_fault}
+	};
 
-	state->status = ret;
+	for (i = 0; i < ARRAY_SIZE(state_fields); i++) {
+		ret = ip5328p_field_read(bq, state_fields[i].id);
+		if (ret < 0)
+			return ret;
 
-	ret = ip5328p_field_read(bq, F_FAULT);
-	if (ret < 0)
-		return ret;
+		*state_fields[i].data = ret;
+	}
 
-	state->fault = ret;
-
-	if (bq->pg)
-		state->power_good = !gpiod_get_value_cansleep(bq->pg);
-	else
-		/*
-		 * If we have a chip without a dedicated power-good GPIO or
-		 * some other explicit bit that would provide this information
-		 * assume the power is good if there is no supply related
-		 * fault - and not good otherwise. There is a possibility for
-		 * other errors to mask that power in fact is not good but this
-		 * is probably the best we can do here.
-		 */
-		switch (state->fault) {
-		case FAULT_INPUT_OVP:
-		case FAULT_INPUT_UVLO:
-		case FAULT_INPUT_LDO_LOW:
-			state->power_good = false;
-			break;
-		default:
-			state->power_good = true;
-		}
+	dev_dbg(bq->dev, "S:CHG/PG/VSYS=%d/%d/%d, F:CHG/BOOST/BAT=%d/%d/%d\n",
+		state->chrg_status, state->online, state->vsys_status,
+		state->chrg_fault, state->boost_fault, state->bat_fault);
 
 	return 0;
 }
@@ -467,138 +495,18 @@ static int ip5328p_get_chip_state(struct ip5328p_device *bq,
 static bool ip5328p_state_changed(struct ip5328p_device *bq,
 				  struct ip5328p_state *new_state)
 {
-	int ret;
+	struct ip5328p_state old_state;
 
 	mutex_lock(&bq->lock);
-	ret = (bq->state.status != new_state->status ||
-	       bq->state.fault != new_state->fault ||
-	       bq->state.power_good != new_state->power_good);
+	old_state = bq->state;
 	mutex_unlock(&bq->lock);
 
-	return ret;
-}
-
-enum ip5328p_loop_status {
-	LOOP_STATUS_NONE,
-	LOOP_STATUS_IN_DPM,
-	LOOP_STATUS_IN_CURRENT_LIMIT,
-	LOOP_STATUS_THERMAL,
-};
-
-enum ip5328p_in_ilimit {
-	IILIMIT_100,
-	IILIMIT_150,
-	IILIMIT_500,
-	IILIMIT_900,
-	IILIMIT_1500,
-	IILIMIT_2000,
-	IILIMIT_EXT,
-	IILIMIT_NONE,
-};
-
-enum ip5328p_vovp {
-	VOVP_6000,
-	VOVP_6500,
-	VOVP_7000,
-	VOVP_8000,
-	VOVP_9000,
-	VOVP_9500,
-	VOVP_10000,
-	VOVP_10500
-};
-
-enum ip5328p_vindpm {
-	VINDPM_4200,
-	VINDPM_4280,
-	VINDPM_4360,
-	VINDPM_4440,
-	VINDPM_4520,
-	VINDPM_4600,
-	VINDPM_4680,
-	VINDPM_4760
-};
-
-enum ip5328p_port_type {
-	PORT_TYPE_DCP,		/* Dedicated Charging Port */
-	PORT_TYPE_CDP,		/* Charging Downstream Port */
-	PORT_TYPE_SDP,		/* Standard Downstream Port */
-	PORT_TYPE_NON_STANDARD,
-};
-
-enum ip5328p_safety_timer {
-	SAFETY_TIMER_45,
-	SAFETY_TIMER_360,
-	SAFETY_TIMER_540,
-	SAFETY_TIMER_NONE,
-};
-
-static int ip5328p_iilimit_autoset(struct ip5328p_device *bq)
-{
-	int loop_status;
-	int iilimit;
-	int port_type;
-	int ret;
-	const u8 new_iilimit[] = {
-		[PORT_TYPE_DCP] = IILIMIT_2000,
-		[PORT_TYPE_CDP] = IILIMIT_2000,
-		[PORT_TYPE_SDP] = IILIMIT_500,
-		[PORT_TYPE_NON_STANDARD] = IILIMIT_500
-	};
-
-	ret = ip5328p_field_read(bq, F_LOOP_STATUS);
-	if (ret < 0)
-		goto error;
-
-	loop_status = ret;
-
-	ret = ip5328p_field_read(bq, F_IILIMIT);
-	if (ret < 0)
-		goto error;
-
-	iilimit = ret;
-
-	/*
-	 * All USB ports should be able to handle 500mA. If not, DPM will lower
-	 * the charging current to accommodate the power source. No need to set
-	 * a lower IILIMIT value.
-	 */
-	if (loop_status == LOOP_STATUS_IN_DPM && iilimit == IILIMIT_500)
-		return 0;
-
-	ret = ip5328p_field_read(bq, F_USB_DET);
-	if (ret < 0)
-		goto error;
-
-	port_type = ret;
-
-	ret = ip5328p_field_write(bq, F_IILIMIT, new_iilimit[port_type]);
-	if (ret < 0)
-		goto error;
-
-	ret = ip5328p_field_write(bq, F_TMR, SAFETY_TIMER_360);
-	if (ret < 0)
-		goto error;
-
-	ret = ip5328p_field_write(bq, F_CLR_VDP, 1);
-	if (ret < 0)
-		goto error;
-
-	dev_dbg(bq->dev, "port/loop = %d/%d -> iilimit = %d\n",
-		port_type, loop_status, new_iilimit[port_type]);
-
-	return 0;
-
-error:
-	dev_err(bq->dev, "%s: Error communicating with the chip.\n", __func__);
-	return ret;
-}
-
-static void ip5328p_iilimit_setup_work(struct work_struct *work)
-{
-	struct ip5328p_device *bq = container_of(work, struct ip5328p_device,
-						 iilimit_setup_work.work);
-
-	ip5328p_iilimit_autoset(bq);
+	return (old_state.chrg_status != new_state->chrg_status ||
+		old_state.chrg_fault != new_state->chrg_fault	||
+		old_state.online != new_state->online		||
+		old_state.bat_fault != new_state->bat_fault	||
+		old_state.boost_fault != new_state->boost_fault ||
+		old_state.vsys_status != new_state->vsys_status);
 }
 
 static void ip5328p_handle_state_change(struct ip5328p_device *bq,
@@ -611,61 +519,36 @@ static void ip5328p_handle_state_change(struct ip5328p_device *bq,
 	old_state = bq->state;
 	mutex_unlock(&bq->lock);
 
-	/*
-	 * Handle BQ2425x state changes observing whether the D+/D- based input
-	 * current limit autoset functionality is enabled.
-	 */
-	if (!new_state->power_good) {
-		dev_dbg(bq->dev, "Power removed\n");
-		if (bq->iilimit_autoset_enable) {
-			cancel_delayed_work_sync(&bq->iilimit_setup_work);
-
-			/* activate D+/D- port detection algorithm */
-			ret = ip5328p_field_write(bq, F_DPDM_EN, 1);
-			if (ret < 0)
-				goto error;
-		}
-		/*
-		 * When power is removed always return to the default input
-		 * current limit as configured during probe.
-		 */
-		ret = ip5328p_field_write(bq, F_IILIMIT, bq->init_data.iilimit);
+	if (!new_state->online) {			     /* power removed */
+		/* disable ADC */
+		ret = ip5328p_field_write(bq, F_CONV_START, 0);
 		if (ret < 0)
 			goto error;
-	} else if (!old_state.power_good) {
-		dev_dbg(bq->dev, "Power inserted\n");
-
-		if (bq->iilimit_autoset_enable)
-			/* configure input current limit */
-			schedule_delayed_work(&bq->iilimit_setup_work,
-				      msecs_to_jiffies(ip5328p_ILIM_SET_DELAY));
-	} else if (new_state->fault == FAULT_NO_BAT) {
-		dev_warn(bq->dev, "Battery removed\n");
-	} else if (new_state->fault == FAULT_TIMER) {
-		dev_err(bq->dev, "Safety timer expired! Battery dead?\n");
+	} else if (!old_state.online) {			    /* power inserted */
+		/* enable ADC, to have control of charge current/voltage */
+		ret = ip5328p_field_write(bq, F_CONV_START, 1);
+		if (ret < 0)
+			goto error;
 	}
 
 	return;
 
 error:
-	dev_err(bq->dev, "%s: Error communicating with the chip.\n", __func__);
+	dev_err(bq->dev, "Error communicating with the chip.\n");
 }
 
 static irqreturn_t ip5328p_irq_handler_thread(int irq, void *private)
 {
-	int ret;
 	struct ip5328p_device *bq = private;
+	int ret;
 	struct ip5328p_state state;
 
 	ret = ip5328p_get_chip_state(bq, &state);
 	if (ret < 0)
-		return IRQ_HANDLED;
+		goto handled;
 
 	if (!ip5328p_state_changed(bq, &state))
-		return IRQ_HANDLED;
-
-	dev_dbg(bq->dev, "irq(state changed): status/fault/pg = %d/%d/%d\n",
-		state.status, state.fault, state.power_good);
+		goto handled;
 
 	ip5328p_handle_state_change(bq, &state);
 
@@ -675,7 +558,31 @@ static irqreturn_t ip5328p_irq_handler_thread(int irq, void *private)
 
 	power_supply_changed(bq->charger);
 
+handled:
 	return IRQ_HANDLED;
+}
+
+static int ip5328p_chip_reset(struct ip5328p_device *bq)
+{
+	int ret;
+	int rst_check_counter = 10;
+
+	ret = ip5328p_field_write(bq, F_REG_RST, 1);
+	if (ret < 0)
+		return ret;
+
+	do {
+		ret = ip5328p_field_read(bq, F_REG_RST);
+		if (ret < 0)
+			return ret;
+
+		usleep_range(5, 10);
+	} while (ret == 1 && --rst_check_counter);
+
+	if (!rst_check_counter)
+		return -ETIMEDOUT;
+
+	return 0;
 }
 
 static int ip5328p_hw_init(struct ip5328p_device *bq)
@@ -685,31 +592,42 @@ static int ip5328p_hw_init(struct ip5328p_device *bq)
 	struct ip5328p_state state;
 
 	const struct {
-		int field;
+		enum ip5328p_fields id;
 		u32 value;
 	} init_data[] = {
-		{F_ICHG, bq->init_data.ichg},
-		{F_VBAT, bq->init_data.vbat},
-		{F_ITERM, bq->init_data.iterm},
-		{F_VOVP, bq->init_data.vovp},
-		{F_VINDPM, bq->init_data.vindpm},
+		{F_ICHG,	 bq->init_data.ichg},
+		{F_VREG,	 bq->init_data.vreg},
+		{F_ITERM,	 bq->init_data.iterm},
+		{F_IPRECHG,	 bq->init_data.iprechg},
+		{F_SYSVMIN,	 bq->init_data.sysvmin},
+		{F_BOOSTV,	 bq->init_data.boostv},
+		{F_BOOSTI,	 bq->init_data.boosti},
+		{F_BOOSTF,	 bq->init_data.boostf},
+		{F_EN_ILIM,	 bq->init_data.ilim_en},
+		{F_TREG,	 bq->init_data.treg}
 	};
 
-	/*
-	 * Disable the watchdog timer to prevent the IC from going back to
-	 * default settings after 50 seconds of I2C inactivity.
-	 */
-	ret = ip5328p_field_write(bq, F_WD_EN, 0);
+	ret = ip5328p_chip_reset(bq);
 	if (ret < 0)
 		return ret;
 
-	/* configure the charge currents and voltages */
+	/* disable watchdog */
+	ret = ip5328p_field_write(bq, F_WD, 0);
+	if (ret < 0)
+		return ret;
+
+	/* initialize currents/voltages and other parameters */
 	for (i = 0; i < ARRAY_SIZE(init_data); i++) {
-		ret = ip5328p_field_write(bq, init_data[i].field,
+		ret = ip5328p_field_write(bq, init_data[i].id,
 					  init_data[i].value);
 		if (ret < 0)
 			return ret;
 	}
+
+	/* Configure ADC for continuous conversions. This does not enable it. */
+	ret = ip5328p_field_write(bq, F_CONV_RATE, 1);
+	if (ret < 0)
+		return ret;
 
 	ret = ip5328p_get_chip_state(bq, &state);
 	if (ret < 0)
@@ -719,27 +637,11 @@ static int ip5328p_hw_init(struct ip5328p_device *bq)
 	bq->state = state;
 	mutex_unlock(&bq->lock);
 
-	if (!bq->iilimit_autoset_enable) {
-		dev_dbg(bq->dev, "manually setting iilimit = %u\n",
-			bq->init_data.iilimit);
-
-		/* program fixed input current limit */
-		ret = ip5328p_field_write(bq, F_IILIMIT,
-					  bq->init_data.iilimit);
-		if (ret < 0)
-			return ret;
-	} else if (!state.power_good)
-		/* activate D+/D- detection algorithm */
-		ret = ip5328p_field_write(bq, F_DPDM_EN, 1);
-	else if (state.fault != FAULT_NO_BAT)
-		ret = ip5328p_iilimit_autoset(bq);
-
-	return ret;
+	return 0;
 }
 
 static enum power_supply_property ip5328p_power_supply_props[] = {
 	POWER_SUPPLY_PROP_MANUFACTURER,
-	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_HEALTH,
@@ -748,7 +650,6 @@ static enum power_supply_property ip5328p_power_supply_props[] = {
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
-	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 };
 
 static char *ip5328p_charger_supplied_to[] = {
@@ -761,96 +662,6 @@ static const struct power_supply_desc ip5328p_power_supply_desc = {
 	.properties = ip5328p_power_supply_props,
 	.num_properties = ARRAY_SIZE(ip5328p_power_supply_props),
 	.get_property = ip5328p_power_supply_get_property,
-	.set_property = ip5328p_power_supply_set_property,
-	.property_is_writeable = ip5328p_power_supply_property_is_writeable,
-};
-
-static ssize_t ip5328p_show_ovp_voltage(struct device *dev,
-					struct device_attribute *attr,
-					char *buf)
-{
-	struct power_supply *psy = dev_get_drvdata(dev);
-	struct ip5328p_device *bq = power_supply_get_drvdata(psy);
-
-	return scnprintf(buf, PAGE_SIZE, "%u\n",
-			 ip5328p_vovp_map[bq->init_data.vovp]);
-}
-
-static ssize_t ip5328p_show_in_dpm_voltage(struct device *dev,
-					   struct device_attribute *attr,
-					   char *buf)
-{
-	struct power_supply *psy = dev_get_drvdata(dev);
-	struct ip5328p_device *bq = power_supply_get_drvdata(psy);
-
-	return scnprintf(buf, PAGE_SIZE, "%u\n",
-			 ip5328p_vindpm_map[bq->init_data.vindpm]);
-}
-
-static ssize_t ip5328p_sysfs_show_enable(struct device *dev,
-					 struct device_attribute *attr,
-					 char *buf)
-{
-	struct power_supply *psy = dev_get_drvdata(dev);
-	struct ip5328p_device *bq = power_supply_get_drvdata(psy);
-	int ret;
-
-	if (strcmp(attr->attr.name, "high_impedance_enable") == 0)
-		ret = ip5328p_field_read(bq, F_HZ_MODE);
-	else if (strcmp(attr->attr.name, "sysoff_enable") == 0)
-		ret = ip5328p_field_read(bq, F_SYSOFF);
-	else
-		return -EINVAL;
-
-	if (ret < 0)
-		return ret;
-
-	return scnprintf(buf, PAGE_SIZE, "%d\n", ret);
-}
-
-static ssize_t ip5328p_sysfs_set_enable(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf,
-					size_t count)
-{
-	struct power_supply *psy = dev_get_drvdata(dev);
-	struct ip5328p_device *bq = power_supply_get_drvdata(psy);
-	long val;
-	int ret;
-
-	if (kstrtol(buf, 10, &val) < 0)
-		return -EINVAL;
-
-	if (strcmp(attr->attr.name, "high_impedance_enable") == 0)
-		ret = ip5328p_field_write(bq, F_HZ_MODE, (bool)val);
-	else if (strcmp(attr->attr.name, "sysoff_enable") == 0)
-		ret = ip5328p_field_write(bq, F_SYSOFF, (bool)val);
-	else
-		return -EINVAL;
-
-	if (ret < 0)
-		return ret;
-
-	return count;
-}
-
-static DEVICE_ATTR(ovp_voltage, S_IRUGO, ip5328p_show_ovp_voltage, NULL);
-static DEVICE_ATTR(in_dpm_voltage, S_IRUGO, ip5328p_show_in_dpm_voltage, NULL);
-static DEVICE_ATTR(high_impedance_enable, S_IWUSR | S_IRUGO,
-		   ip5328p_sysfs_show_enable, ip5328p_sysfs_set_enable);
-static DEVICE_ATTR(sysoff_enable, S_IWUSR | S_IRUGO,
-		   ip5328p_sysfs_show_enable, ip5328p_sysfs_set_enable);
-
-static struct attribute *ip5328p_charger_attr[] = {
-	&dev_attr_ovp_voltage.attr,
-	&dev_attr_in_dpm_voltage.attr,
-	&dev_attr_high_impedance_enable.attr,
-	&dev_attr_sysoff_enable.attr,
-	NULL,
-};
-
-static const struct attribute_group ip5328p_attr_group = {
-	.attrs = ip5328p_charger_attr,
 };
 
 static int ip5328p_power_supply_init(struct ip5328p_device *bq)
@@ -860,96 +671,123 @@ static int ip5328p_power_supply_init(struct ip5328p_device *bq)
 	psy_cfg.supplied_to = ip5328p_charger_supplied_to;
 	psy_cfg.num_supplicants = ARRAY_SIZE(ip5328p_charger_supplied_to);
 
-	bq->charger = devm_power_supply_register(bq->dev,
-						 &ip5328p_power_supply_desc,
-						 &psy_cfg);
+	bq->charger = power_supply_register(bq->dev, &ip5328p_power_supply_desc,
+					    &psy_cfg);
 
 	return PTR_ERR_OR_ZERO(bq->charger);
 }
 
-static void ip5328p_pg_gpio_probe(struct ip5328p_device *bq)
+static void ip5328p_usb_work(struct work_struct *data)
 {
-	bq->pg = devm_gpiod_get_optional(bq->dev, ip5328p_PG_GPIO, GPIOD_IN);
+	int ret;
+	struct ip5328p_device *bq =
+			container_of(data, struct ip5328p_device, usb_work);
 
-	if (PTR_ERR(bq->pg) == -EPROBE_DEFER) {
-		dev_info(bq->dev, "probe retry requested for PG pin\n");
-		return;
-	} else if (IS_ERR(bq->pg)) {
-		dev_err(bq->dev, "error probing PG pin\n");
-		bq->pg = NULL;
-		return;
+	switch (bq->usb_event) {
+	case USB_EVENT_ID:
+		/* Enable boost mode */
+		ret = ip5328p_field_write(bq, F_OTG_CFG, 1);
+		if (ret < 0)
+			goto error;
+		break;
+
+	case USB_EVENT_NONE:
+		/* Disable boost mode */
+		ret = ip5328p_field_write(bq, F_OTG_CFG, 0);
+		if (ret < 0)
+			goto error;
+
+		power_supply_changed(bq->charger);
+		break;
 	}
 
-	if (bq->pg)
-		dev_dbg(bq->dev, "probed PG pin = %d\n", desc_to_gpio(bq->pg));
+	return;
+
+error:
+	dev_err(bq->dev, "Error switching to boost/charger mode.\n");
+}
+
+static int ip5328p_usb_notifier(struct notifier_block *nb, unsigned long val,
+				void *priv)
+{
+	struct ip5328p_device *bq =
+			container_of(nb, struct ip5328p_device, usb_nb);
+
+	bq->usb_event = val;
+	queue_work(system_power_efficient_wq, &bq->usb_work);
+
+	return NOTIFY_OK;
+}
+
+static int ip5328p_irq_probe(struct ip5328p_device *bq)
+{
+	struct gpio_desc *irq;
+
+	irq = devm_gpiod_get(bq->dev, ip5328p_IRQ_PIN, GPIOD_IN);
+	if (IS_ERR(irq)) {
+		dev_err(bq->dev, "Could not probe irq pin.\n");
+		return PTR_ERR(irq);
+	}
+
+	return gpiod_to_irq(irq);
+}
+
+static int ip5328p_fw_read_u32_props(struct ip5328p_device *bq)
+{
+	int ret;
+	u32 property;
+	int i;
+	struct ip5328p_init_data *init = &bq->init_data;
+	struct {
+		char *name;
+		bool optional;
+		enum ip5328p_table_ids tbl_id;
+		u8 *conv_data; /* holds converted value from given property */
+	} props[] = {
+		/* required properties */
+		{"ti,charge-current", false, TBL_ICHG, &init->ichg},
+		{"ti,battery-regulation-voltage", false, TBL_VREG, &init->vreg},
+		{"ti,termination-current", false, TBL_ITERM, &init->iterm},
+		{"ti,precharge-current", false, TBL_ITERM, &init->iprechg},
+		{"ti,minimum-sys-voltage", false, TBL_SYSVMIN, &init->sysvmin},
+		{"ti,boost-voltage", false, TBL_BOOSTV, &init->boostv},
+		{"ti,boost-max-current", false, TBL_BOOSTI, &init->boosti},
+
+		/* optional properties */
+		{"ti,thermal-regulation-threshold", true, TBL_TREG, &init->treg}
+	};
+
+	/* initialize data for optional properties */
+	init->treg = 3; /* 120 degrees Celsius */
+
+	for (i = 0; i < ARRAY_SIZE(props); i++) {
+		ret = device_property_read_u32(bq->dev, props[i].name,
+					       &property);
+		if (ret < 0) {
+			if (props[i].optional)
+				continue;
+
+			return ret;
+		}
+
+		*props[i].conv_data = ip5328p_find_idx(property,
+						       props[i].tbl_id);
+	}
+
+	return 0;
 }
 
 static int ip5328p_fw_probe(struct ip5328p_device *bq)
 {
 	int ret;
-	u32 property;
-	printk("w222222222222222222222222222222222222222222222");
+	struct ip5328p_init_data *init = &bq->init_data;
 
-	/* Required properties */
-	ret = device_property_read_u32(bq->dev, "ti,charge-current", &property);
+	ret = ip5328p_fw_read_u32_props(bq);
 	if (ret < 0)
 		return ret;
 
-	bq->init_data.ichg = ip5328p_find_idx(property, ip5328p_ichg_map,
-					      ip5328p_ICHG_MAP_SIZE);
-
-	ret = device_property_read_u32(bq->dev, "ti,battery-regulation-voltage",
-				       &property);
-	if (ret < 0)
-		return ret;
-
-	bq->init_data.vbat = ip5328p_find_idx(property, ip5328p_vbat_map,
-					      ip5328p_VBAT_MAP_SIZE);
-
-	ret = device_property_read_u32(bq->dev, "ti,termination-current",
-				       &property);
-	if (ret < 0)
-		return ret;
-
-	bq->init_data.iterm = ip5328p_find_idx(property, ip5328p_iterm_map,
-					       ip5328p_ITERM_MAP_SIZE);
-
-	/* Optional properties. If not provided use reasonable default. */
-	ret = device_property_read_u32(bq->dev, "ti,current-limit",
-				       &property);
-	if (ret < 0) {
-		bq->iilimit_autoset_enable = true;
-
-		/*
-		 * Explicitly set a default value which will be needed for
-		 * devices that don't support the automatic setting of the input
-		 * current limit through the charger type detection mechanism.
-		 */
-		bq->init_data.iilimit = IILIMIT_500;
-	} else
-		bq->init_data.iilimit =
-				ip5328p_find_idx(property,
-						 ip5328p_iilimit_map,
-						 ip5328p_IILIMIT_MAP_SIZE);
-
-	ret = device_property_read_u32(bq->dev, "ti,ovp-voltage",
-				       &property);
-	if (ret < 0)
-		bq->init_data.vovp = VOVP_6500;
-	else
-		bq->init_data.vovp = ip5328p_find_idx(property,
-						      ip5328p_vovp_map,
-						      ip5328p_VOVP_MAP_SIZE);
-
-	ret = device_property_read_u32(bq->dev, "ti,in-dpm-voltage",
-				       &property);
-	if (ret < 0)
-		bq->init_data.vindpm = VINDPM_4360;
-	else
-		bq->init_data.vindpm =
-				ip5328p_find_idx(property,
-						 ip5328p_vindpm_map,
-						 ip5328p_VINDPM_MAP_SIZE);
+	init->ilim_en = device_property_read_bool(bq->dev, "ti,use-ilim-pin");
+	init->boostf = device_property_read_bool(bq->dev, "ti,boost-low-freq");
 
 	return 0;
 }
@@ -957,10 +795,8 @@ static int ip5328p_fw_probe(struct ip5328p_device *bq)
 static int ip5328p_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
-
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct device *dev = &client->dev;
-	const struct acpi_device_id *acpi_id;
 	struct ip5328p_device *bq;
 	int ret;
 	int i;
@@ -976,18 +812,6 @@ static int ip5328p_probe(struct i2c_client *client,
 
 	bq->client = client;
 	bq->dev = dev;
-
-	if (ACPI_HANDLE(dev)) {
-		acpi_id = acpi_match_device(dev->driver->acpi_match_table,
-					    &client->dev);
-		if (!acpi_id) {
-			dev_err(dev, "Failed to match ACPI device\n");
-			return -ENODEV;
-		}
-		bq->chip = (enum ip5328p_chip)acpi_id->driver_data;
-	} else {
-		bq->chip = (enum ip5328p_chip)id->driver_data;
-	}
 
 	mutex_init(&bq->lock);
 
@@ -1010,6 +834,17 @@ static int ip5328p_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, bq);
 
+	bq->chip_id = ip5328p_field_read(bq, F_PN);
+	if (bq->chip_id < 0) {
+		dev_err(dev, "Cannot read chip ID.F_PN = %d\n", F_PN);
+		return bq->chip_id;
+	}
+
+	if (bq->chip_id != ip5328p_ID) {
+		dev_err(dev, "Chip with ID=%d, not supported!\n", bq->chip_id);
+		return -ENODEV;
+	}
+
 	if (!dev->platform_data) {
 		ret = ip5328p_fw_probe(bq);
 		if (ret < 0) {
@@ -1020,87 +855,61 @@ static int ip5328p_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
-	/*
-	 * The ip5328p doesn't support the D+/D- based charger type detection
-	 * used for the automatic setting of the input current limit setting so
-	 * explicitly disable that feature.
-	 */
-	if (bq->chip == ip5328p)
-		bq->iilimit_autoset_enable = false;
-
-	if (bq->iilimit_autoset_enable)
-		INIT_DELAYED_WORK(&bq->iilimit_setup_work,
-				  ip5328p_iilimit_setup_work);
-
-	/*
-	 * The ip5328p doesn't have a dedicated Power Good (PG) pin so let's
-	 * not probe for it and instead use a SW-based approach to determine
-	 * the PG state. We also use a SW-based approach for all other devices
-	 * if the PG pin is either not defined or can't be probed.
-	 */
-	if (bq->chip != ip5328p)
-		ip5328p_pg_gpio_probe(bq);
-
-	if (PTR_ERR(bq->pg) == -EPROBE_DEFER)
-		return PTR_ERR(bq->pg);
-	else if (!bq->pg)
-		dev_info(bq->dev, "using SW-based power-good detection\n");
-
-	/* reset all registers to defaults */
-	ret = ip5328p_field_write(bq, F_RESET, 1);
-	if (ret < 0)
-		return ret;
-
-	/*
-	 * Put the RESET bit back to 0, in cache. For some reason the HW always
-	 * returns 1 on this bit, so this is the only way to avoid resetting the
-	 * chip every time we update another field in this register.
-	 */
-	ret = ip5328p_field_write(bq, F_RESET, 0);
-	if (ret < 0)
-		return ret;
-
 	ret = ip5328p_hw_init(bq);
 	if (ret < 0) {
 		dev_err(dev, "Cannot initialize the chip.\n");
 		return ret;
 	}
 
-	ret = ip5328p_power_supply_init(bq);
-	if (ret < 0) {
-		dev_err(dev, "Failed to register power supply\n");
-		return ret;
+	if (client->irq <= 0)
+		client->irq = ip5328p_irq_probe(bq);
+
+	if (client->irq < 0) {
+		dev_err(dev, "No irq resource found.\n");
+		return client->irq;
+	}
+
+	/* OTG reporting */
+	bq->usb_phy = devm_usb_get_phy(dev, USB_PHY_TYPE_USB2);
+	if (!IS_ERR_OR_NULL(bq->usb_phy)) {
+		INIT_WORK(&bq->usb_work, ip5328p_usb_work);
+		bq->usb_nb.notifier_call = ip5328p_usb_notifier;
+		usb_register_notifier(bq->usb_phy, &bq->usb_nb);
 	}
 
 	ret = devm_request_threaded_irq(dev, client->irq, NULL,
 					ip5328p_irq_handler_thread,
-					IRQF_TRIGGER_FALLING |
-					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-					ip5328p_chip_name[bq->chip], bq);
-	if (ret) {
-		dev_err(dev, "Failed to request IRQ #%d\n", client->irq);
-		return ret;
-	}
+					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					ip5328p_IRQ_PIN, bq);
+	if (ret)
+		goto irq_fail;
 
-	ret = sysfs_create_group(&bq->charger->dev.kobj, &ip5328p_attr_group);
+	ret = ip5328p_power_supply_init(bq);
 	if (ret < 0) {
-		dev_err(dev, "Can't create sysfs entries\n");
-		return ret;
+		dev_err(dev, "Failed to register power supply\n");
+		goto irq_fail;
 	}
 
 	return 0;
+
+irq_fail:
+	if (!IS_ERR_OR_NULL(bq->usb_phy))
+		usb_unregister_notifier(bq->usb_phy, &bq->usb_nb);
+
+	return ret;
 }
 
 static int ip5328p_remove(struct i2c_client *client)
 {
 	struct ip5328p_device *bq = i2c_get_clientdata(client);
 
-	if (bq->iilimit_autoset_enable)
-		cancel_delayed_work_sync(&bq->iilimit_setup_work);
+	power_supply_unregister(bq->charger);
 
-	sysfs_remove_group(&bq->charger->dev.kobj, &ip5328p_attr_group);
+	if (!IS_ERR_OR_NULL(bq->usb_phy))
+		usb_unregister_notifier(bq->usb_phy, &bq->usb_nb);
 
-	ip5328p_field_write(bq, F_RESET, 1); /* reset to defaults */
+	/* reset all registers to default values */
+	ip5328p_chip_reset(bq);
 
 	return 0;
 }
@@ -1109,36 +918,33 @@ static int ip5328p_remove(struct i2c_client *client)
 static int ip5328p_suspend(struct device *dev)
 {
 	struct ip5328p_device *bq = dev_get_drvdata(dev);
-	int ret = 0;
 
-	if (bq->iilimit_autoset_enable)
-		cancel_delayed_work_sync(&bq->iilimit_setup_work);
-
-	/* reset all registers to default (and activate standalone mode) */
-	ret = ip5328p_field_write(bq, F_RESET, 1);
-	if (ret < 0)
-		dev_err(bq->dev, "Cannot reset chip to standalone mode.\n");
-
-	return ret;
+	/*
+	 * If charger is removed, while in suspend, make sure ADC is diabled
+	 * since it consumes slightly more power.
+	 */
+	return ip5328p_field_write(bq, F_CONV_START, 0);
 }
 
 static int ip5328p_resume(struct device *dev)
 {
 	int ret;
+	struct ip5328p_state state;
 	struct ip5328p_device *bq = dev_get_drvdata(dev);
 
-	ret = regcache_drop_region(bq->rmap, ip5328p_REG_1, ip5328p_REG_7);
+	ret = ip5328p_get_chip_state(bq, &state);
 	if (ret < 0)
 		return ret;
 
-	ret = ip5328p_field_write(bq, F_RESET, 0);
-	if (ret < 0)
-		return ret;
+	mutex_lock(&bq->lock);
+	bq->state = state;
+	mutex_unlock(&bq->lock);
 
-	ret = ip5328p_hw_init(bq);
-	if (ret < 0) {
-		dev_err(bq->dev, "Cannot init chip after resume.\n");
-		return ret;
+	/* Re-enable ADC only if charger is plugged in. */
+	if (state.online) {
+		ret = ip5328p_field_write(bq, F_CONV_START, 1);
+		if (ret < 0)
+			return ret;
 	}
 
 	/* signal userspace, maybe state changed while suspended */
@@ -1153,7 +959,7 @@ static const struct dev_pm_ops ip5328p_pm = {
 };
 
 static const struct i2c_device_id ip5328p_i2c_ids[] = {
-	{ "ip5328p", ip5328p },
+	{ "ip5328p", 0 },
 	{},
 };
 MODULE_DEVICE_TABLE(i2c, ip5328p_i2c_ids);
@@ -1165,14 +971,14 @@ static const struct of_device_id ip5328p_of_match[] = {
 MODULE_DEVICE_TABLE(of, ip5328p_of_match);
 
 static const struct acpi_device_id ip5328p_acpi_match[] = {
-	{ "ip5328p", ip5328p },
+	{"ip5328p", 0},
 	{},
 };
 MODULE_DEVICE_TABLE(acpi, ip5328p_acpi_match);
 
 static struct i2c_driver ip5328p_driver = {
 	.driver = {
-		.name = "ip5328p",
+		.name = "ip5328p-charger",
 		.of_match_table = of_match_ptr(ip5328p_of_match),
 		.acpi_match_table = ACPI_PTR(ip5328p_acpi_match),
 		.pm = &ip5328p_pm,
@@ -1186,4 +992,3 @@ module_i2c_driver(ip5328p_driver);
 MODULE_AUTHOR("Laurentiu Palcu <laurentiu.palcu@intel.com>");
 MODULE_DESCRIPTION("ip5328p charger driver");
 MODULE_LICENSE("GPL");
-
