@@ -29,9 +29,9 @@
 #include <linux/of.h>
 
 #define ip5328p_MANUFACTURER		"injoinic"
-#define ip5328p_IRQ_PIN			"ip5328p_irq"
+#define ip5328p_IRQ_PIN			"irq"
 
-#define ip5328p_ID			0x69 //3
+#define ip5328p_ID			0x75//3
 
 enum ip5328p_fields {
 	F_EN_HIZ, F_EN_ILIM, F_IILIM,				     /* Reg00 */
@@ -834,9 +834,9 @@ static int ip5328p_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, bq);
 
-	bq->chip_id = ip5328p_field_read(bq, F_PN);
+	bq->chip_id = ip5328p_field_read(bq, 0x75);
 	if (bq->chip_id < 0) {
-		dev_err(dev, "Cannot read chip ID.F_PN = %d\n", F_PN);
+		dev_err(dev, "Cannot read chip ID.F_PN = %d\n", bq->chip_id );
 		return bq->chip_id;
 	}
 
