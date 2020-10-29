@@ -856,6 +856,7 @@ static int ip5328p_probe(struct i2c_client *client,
 	}
 
 	ret = ip5328p_hw_init(bq);
+	printk("11111111111111111111111111111111111111111111");
 	if (ret < 0) {
 		dev_err(dev, "Cannot initialize the chip.\n");
 		return ret;
