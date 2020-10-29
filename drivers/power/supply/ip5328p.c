@@ -566,7 +566,8 @@ static int ip5328p_chip_reset(struct ip5328p_device *bq)
 {
 	int ret;
 	int rst_check_counter = 10;
-
+	printk("222222222222222222 reset");
+#if 0
 	ret = ip5328p_field_write(bq, F_REG_RST, 1);
 	if (ret < 0)
 		return ret;
@@ -581,7 +582,7 @@ static int ip5328p_chip_reset(struct ip5328p_device *bq)
 
 	if (!rst_check_counter)
 		return -ETIMEDOUT;
-
+#endif
 	return 0;
 }
 
@@ -589,12 +590,15 @@ static int ip5328p_hw_init(struct ip5328p_device *bq)
 {
 	int ret;
 	int i;
+	printk("222222222222222222");
+
 	struct ip5328p_state state;
 
 	const struct {
 		enum ip5328p_fields id;
 		u32 value;
 	} init_data[] = {
+		/*
 		{F_ICHG,	 bq->init_data.ichg},
 		{F_VREG,	 bq->init_data.vreg},
 		{F_ITERM,	 bq->init_data.iterm},
@@ -605,13 +609,16 @@ static int ip5328p_hw_init(struct ip5328p_device *bq)
 		{F_BOOSTF,	 bq->init_data.boostf},
 		{F_EN_ILIM,	 bq->init_data.ilim_en},
 		{F_TREG,	 bq->init_data.treg}
+		*/
 	};
-
+		
+#if 0
 	ret = ip5328p_chip_reset(bq);
 	if (ret < 0)
 		return ret;
 
 	/* disable watchdog */
+
 	ret = ip5328p_field_write(bq, F_WD, 0);
 	if (ret < 0)
 		return ret;
@@ -628,8 +635,10 @@ static int ip5328p_hw_init(struct ip5328p_device *bq)
 	ret = ip5328p_field_write(bq, F_CONV_RATE, 1);
 	if (ret < 0)
 		return ret;
-
+#endif
 	ret = ip5328p_get_chip_state(bq, &state);
+	printk("ip5328p_get_chip_state444444444444444");
+
 	if (ret < 0)
 		return ret;
 
@@ -834,6 +843,13 @@ static int ip5328p_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, bq);
 
+
+
+
+	printk("1111111111111111111111111111");
+
+	
+#if 0
 	bq->chip_id = ip5328p_field_read(bq, 0x75);
 	if (bq->chip_id < 0) {
 		dev_err(dev, "Cannot read chip ID.F_PN = %d\n", bq->chip_id );
@@ -855,8 +871,9 @@ static int ip5328p_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
+	
+#endif
 	ret = ip5328p_hw_init(bq);
-	printk("11111111111111111111111111111111111111111111");
 	if (ret < 0) {
 		dev_err(dev, "Cannot initialize the chip.\n");
 		return ret;
@@ -869,6 +886,7 @@ static int ip5328p_probe(struct i2c_client *client,
 		dev_err(dev, "No irq resource found.\n");
 		return client->irq;
 	}
+	printk("333333333333333333333333");
 
 	/* OTG reporting */
 	bq->usb_phy = devm_usb_get_phy(dev, USB_PHY_TYPE_USB2);
