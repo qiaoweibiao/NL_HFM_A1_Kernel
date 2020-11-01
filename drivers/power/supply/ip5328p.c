@@ -22,19 +22,132 @@
 #define DEFAULT_DEBOUNCE_MSEC	270
 
 /* Registers */
-#define IP5328P_CTRL1		0x1
-#define IP5328P_CTRL2		0x2
+
+
+
+#define IP5328P_CTRL1  0x01//boost 和 和 charger  使能寄存器
+
+#define IP5328P_CTRL2  0x03//按键控制寄存器
+#define SYS_CTL3  0X04//芯片内部温度和 NTC  温度控制寄存器
+#define SYS_CTL4  0X05//照明灯控制寄存器
+#define SYS_CTL5  0X07//轻载关机时间设置
+#define SYS_CTL6  0X0A//电量灯配置寄存器
+#define SYS_CTL7  0X0B//输出口自动检测负载寄存器
+#define SYS_CTL8  0X0C//按键控制输出口寄存器
+#define SYS_CTL9  0X0D//边充边放功能寄存器
+#define SYS_CTL10  0X0E//按键控制输出口寄存器
+
+#define VBAT_LO  0X10 //低电关机阈值设置
+#define VINOV  0X11	//VIN  输入过压设置
+#define VBUSOV  0X12	//VBUS	输入过压设置
+#define BOOST_LINC  0X13	//输出线补设置寄存器
+
+#define TYPEC_CTRL0  0X1A //typec CC	上拉设置 寄存器
+#define TYPEC_CTRL1  0X1B//typec CC  模式 配置寄存
+#define TYPEC_CTRL2  0X1C//typec PD  协议使能寄存器
+#define TYPEC_CTRL3  0X1E//输入请求最高电压设置
+
+#define CHG_CTL1  0X21//充电停充电压设置寄存器
+#define CHG_CTL2  0X22//充电充满电压设置寄存器
+#define CHG_CTL3  0X23//充电欠压环设置寄存器 5V 7V 
+#define CHG_CTL4  0X24//充电欠压环设置寄存器 9V 12V
+
+#define CHG_ISET_9V  0x26//
+#define CHG_ISET_12V  0x27//
+#define CHG_ISET_5V_VBUS  0x29
+#define CHG_ISET_5V_VIN  0x2A
+#define CHG_ISET_7V  0x2B
+#define CHG_TIMER_EN  0x2C
+#define CHG_TIMER_SET  0x2D
+
+#define DCDC_FREQ  0x31//DC-DC  开关频率设置寄存器
+
+#define QC_EN  0x3E//输入输出口 DCP	快充协议使能寄存器
+
+#define IC_TEMP  0X42//IC  内部过温寄存器
+#define CHG_NTC_TEMP  0X43//充电 NTC  阈值寄存器
+
+
+#define BST_NTC_TEMP  0x54//放电 NTC  阈值寄存器
+#define PMOS_REG_CTL0  0x59//输入输出口控制寄存器
+#define PMOS_REG_CTL1  0x5A//输入输出口控制寄存器
+#define FORCE_EN  0x5B//寄存器关机和复位控制寄存器
+
+#define FLAG0  0x7E//异常标志位
+#define FLAG1  0x7F//按键和过压标志
+#define BST_POWERLOW  0x81//轻载关机 功率 阈值设置寄存器
+#define RSET  0x82//电池内阻补偿寄存器
+#define IPMOSLOW  0x86//多口转单口 MOS  关电流阈值设置寄存器
+#define BATOCV_LOW  0x88//低电退出主动退出快充设置寄存器
+#define IPMOSLOW_TIME  0x90//多口转单口时间设置寄存器
+#define QC_VMAX  0x96// （设置 QC	协议最大输出电压
+#define BATOCV_LOW_DN  0x9F//
+
+#define DCP_DIG_CTL0  0xA0
+#define DCP_DIG_CTL1  0xA1
+#define DCP_DIG_CTL2  0xA2
+#define BOOST_5V_ISET  0xA8
+#define BOOST_VSET  0x4C
+
+#define DCP_DIG_CTL10  0xAA
+#define LED_STATUS  0XDB//电量信息寄存器
+
+/*以下为只读寄存器*/
+#define BATVADC_DAT0  0x64//BAT  真实电压 寄存器
+#define BATVADC_DAT1  0x65//BAT  真实电压 寄存器
+#define BATIADC_DAT0  0x66//BAT  端电流 寄存器 
+#define BATIADC_DAT1  0x67//BAT  端电流 寄存器 
+#define SYSVADC_DAT0  0x68//VSYS	端电压值 寄存器
+#define SYSVADC_DAT1  0x69//VSYS	端电压值 寄存器
+#define SYSIADC_DAT0  0x6A//10  毫欧 采样 电阻 流过的电流 寄存器 
+#define SYSIADC_DAT1  0x6B//10  毫欧 采样 电阻 流过的电流 寄存器 
+#define VINIADC_DAT0  0x6C//VIN  通路 MOS  流过的电流 寄存器 
+#define VINIADC_DAT1  0x6D//VIN  通路 MOS  流过的电流 寄存器
+#define VBUSIADC_DAT0  0x6E//VBUS  通路 MOS  流过的电流 寄存器
+#define VBUSIADC_DAT1  0x6F//VBUS  通路 MOS  流过的电流 寄存器
+#define VOUT1IADC_DAT0  0x70//VOUT1  通路 MOS  流过的电流
+#define VOUT1IADC_DAT1  0x71//VOUT1  通路 MOS  流过的电流
+#define VOUT2IADC_DAT0  0x72//VOUT2  通路 MOS  流过的电流
+#define VOUT2IADC_DAT1  0x73//VOUT2  通路 MOS  流过的电流
+#define RSETADC_DAT0  0x74//
+#define RSETADC_DAT0  0x75//
+#define GPIADC_DAT0  0x78//GPIO ADC  电压值寄存器
+#define GPIADC_DAT1  0x79//GPIO ADC  电压值寄存器
+#define BATOCV_DAT0  0x7A//BATOCV  电压 寄存器
+#define BATOCV_DAT1  0x7B//BATOCV  电压 寄存器
+#define POWER_DAT0  0x7C//输入输出功率寄存器
+#define POWER_DAT1  0x7D//输入输出功率寄存器
+#define SYS_STATUS  0xD1//系统状态指示寄存器
+#define KEY_IN  0xD2//系统状态指示寄存器
+#define OV_FLAG  0xD3//系统过压/ 欠压寄存器
+#define VIN_VBUS_STATE	 0xD5//VIN/VBUS  充电电压寄存器
+#define CHG_STATUS 0xD7//充电状态指示寄存器
+#define LOW_STATUS	 0xD9//系统轻载标志位
+#define NTC_FLAG   0xDA//NTC	状态指示寄存器
+#define LOWCUR_FLAG   0xDE//常开 N  小时标准位
+#define MOS_ON	0xE5// MOS  开启状态寄存器 
+#define BST_V_FLAG	 0xFB//BOOST	电压范围寄存器
+#define TYPEC_OK  0XB8//  TYPEC	连接状态寄存器
+#define TYPEC_FLAG	 0xFC//TYPEC	上拉状态寄存器
+
+
+
+
+
+/*以下是原来代码中的寄存器设置*/
+//#define IP5328P_CTRL1		0x1
+//#define IP5328P_CTRL2		0x2
 #define IP5328P_SWCTRL		0x3
 #define IP5328P_INT1		0x4
 #define IP5328P_INT2		0x5
 #define IP5328P_STATUS1		0x6
 #define IP5328P_STATUS2		0x7
-#define IP5328P_CHGCTRL2		0x9
+#define IP5328P_CHGCTRL2	0x9
 
 /* CTRL1 register */
-#define IP5328P_CP_EN		BIT(0)
-#define IP5328P_ADC_EN		BIT(1)
-#define IP5328P_ID200_EN		BIT(4)
+#define IP5328P_CP_EN		BIT(1)
+#define IP5328P_ADC_EN		BIT(2)//
+//#define IP5328P_ID200_EN		BIT(4)
 
 /* CTRL2 register */
 #define IP5328P_CHGDET_EN	BIT(1)
