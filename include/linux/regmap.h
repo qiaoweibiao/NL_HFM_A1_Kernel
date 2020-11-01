@@ -1180,3 +1180,4 @@ static inline struct device *regmap_get_device(struct regmap *map)
 #endif
 
 #endif
+ 
