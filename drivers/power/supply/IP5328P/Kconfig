@@ -1,0 +1,16 @@
+menuconfig POWER_SUPPLY
+	bool "Power supply class support"
+	help
+	  Say Y here to enable power supply class support. This allows
+	  power supply (batteries, AC, USB) monitoring by userspace
+	  via sysfs and uevent (if available) and/or APM kernel interface
+	  (if selected below).
+
+if POWER_SUPPLY
+config IP5328P
+	tristate "Injoinic IP5328P"
+	depends on I2C
+	help
+	  Say Y here to enable support for batteries with IP5328P chips
+	  connected over an I2C bus.
+endif # POWER_SUPPLY

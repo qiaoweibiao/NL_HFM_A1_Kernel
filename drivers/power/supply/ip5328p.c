@@ -21,10 +21,12 @@
 #define LP8788_NUM_INTREGS	2
 #define DEFAULT_DEBOUNCE_MSEC	270
 
+
+
+
+#if 0
+
 /* Registers */
-
-
-
 #define IP5328P_CTRL1  0x01//boost 和 和 charger  使能寄存器
 
 #define IP5328P_CTRL2  0x03//按键控制寄存器
@@ -132,22 +134,24 @@
 
 
 
-
+#endif
 
 /*以下是原来代码中的寄存器设置*/
-//#define IP5328P_CTRL1		0x1
-//#define IP5328P_CTRL2		0x2
+#define IP5328P_CTRL1		0x01//boost 和 和 charger  使能寄存器
+#define IP5328P_CTRL2		0x03//按键控制寄存器
 #define IP5328P_SWCTRL		0x3
-#define IP5328P_INT1		0x4
-#define IP5328P_INT2		0x5
-#define IP5328P_STATUS1		0x6
-#define IP5328P_STATUS2		0x7
-#define IP5328P_CHGCTRL2	0x9
+#define IP5328P_INT1		0x7E//异常标志位
+#define IP5328P_INT2		0x7F//按键和过压标志
+#define IP5328P_STATUS1		0xD1//系统状态指示寄存器
+#define IP5328P_STATUS2		0XDB//电量信息寄存器
+#define IP5328P_CHGCTRL2	0X1C//typec PD  协议使能寄存器
+#define IP5328P_CHGCTRL2	0X1C//typec PD  协议使能寄存器
+
 
 /* CTRL1 register */
 #define IP5328P_CP_EN		BIT(1)
 #define IP5328P_ADC_EN		BIT(2)//
-//#define IP5328P_ID200_EN		BIT(4)
+#define IP5328P_ID200_EN		BIT(4)
 
 /* CTRL2 register */
 #define IP5328P_CHGDET_EN	BIT(1)
@@ -256,14 +260,18 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 {
 	u8 val;
 	int ret;
-	u8 intstat[LP8788_NUM_INTREGS];
 
-	/* clear interrupts */
-	ret = IP5328P_read_bytes(pchg, IP5328P_INT1, intstat, LP8788_NUM_INTREGS);
-	if (ret)
+	/* 读取是否为异常 */
+	ret = IP5328P_read_bytes(pchg, IP5328P_INT1,0x7,0xFF);
+	printk("qwb008 the value of ret is =%d\n ", ret);
+
+	
+	ret = IP5328P_write_byte(pchg, IP5328P_INT1, 0xFF);
+	printk("qwb008 the value of ret is =%d\n ", ret);
+	if(ret)
 		return ret;
-
-	val = IP5328P_ID200_EN | IP5328P_ADC_EN | IP5328P_CP_EN;
+		
+	val = IP5328P_CP_EN;
 	ret = IP5328P_write_byte(pchg, IP5328P_CTRL1, val);
 	if (ret)
 		return ret;
@@ -662,11 +670,11 @@ static int IP5328P_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 	struct IP5328P_chg *pchg;
 	struct IP5328P_platform_data *pdata;
 	int ret;
-printk("11111111111111111111111111111");
+	printk("11111111111111111111111111111   IP5328P_probe ");
 	if (!i2c_check_functionality(cl->adapter, I2C_FUNC_SMBUS_I2C_BLOCK))
 		return -EIO;
 
-	if (cl->dev.of_node) {
+	if (cl->dev.of_node) {//dts 参数传入
 		pdata = IP5328P_parse_dt(&cl->dev);
 		if (IS_ERR(pdata))
 			return PTR_ERR(pdata);
@@ -678,7 +686,7 @@ printk("11111111111111111111111111111");
 	if (!pchg)
 		return -ENOMEM;
 
-	pchg->client = cl;
+	pchg->client = cl;//来源于结构体中
 	pchg->dev = &cl->dev;
 	pchg->pdata = pdata;
 	i2c_set_clientdata(cl, pchg);
