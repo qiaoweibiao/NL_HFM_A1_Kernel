@@ -148,6 +148,8 @@
 #define IP5328P_CHGCTRL2	0X1C//typec PD  协议使能寄存器
 #define IP5328P_SWCTRL		0XDB//typec PD  协议使能寄存器
 
+#define BATVADC_DAT0  		0x64//BAT  真实电压 寄存器
+#define BATVADC_DAT1  		0x65//BAT  真实电压 寄存器
 
 
 /* CTRL1 register */
@@ -273,14 +275,16 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 {
 	u8 val;
 	u8 val_LED;
-
-
 	u8 val_KEY;
+	u8 BAT_H_8bit;
+	u8 BAT_L_8bit;
 	int ret;
 	u8 intstat[IP5328P_NUM_INTREGS];
 	u8 EN_CHARGER;
 	u8 EN_BOOST;
 
+	
+#if 0
 	IP5328P_read_byte(pchg, IP5328P_CTRL1, &val);
 	
 	val = val & IP5328P_EN_CHARGER;
@@ -297,8 +301,14 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 	val_KEY = val_KEY & IP5328P_EN_KEY;
 	printk("the value of IP5328P_EN_KEY = %d\n",val_KEY);
 
-	IP5328P_write_byte(pchg, IP5328P_EN_KEY, 0x0);
-	
+#endif
+
+	IP5328P_read_byte(pchg, BATVADC_DAT0, &BAT_H_8bit);
+	BAT_H_8bit = BAT_H_8bit & 0xFF;
+	printk("the value of IP5328P_EN_KEY = %d\n",BAT_H_8bit);
+	IP5328P_read_byte(pchg, BATVADC_DAT1, &BAT_L_8bit);
+	BAT_L_8bit = BAT_L_8bit & 0xFF;
+	printk("the value of IP5328P_EN_KEY = %d\n",BAT_L_8bit);
 
 }
 
