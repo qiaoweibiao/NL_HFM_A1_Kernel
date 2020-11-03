@@ -148,8 +148,23 @@
 #define IP5328P_CHGCTRL2	0X1C//typec PD  协议使能寄存器
 #define IP5328P_SWCTRL		0XDB//typec PD  协议使能寄存器
 
+
+
+#define IP5328P_FORCE_EN  	0x5B//寄存器关机和复位控制寄存器
+
+
 #define BATVADC_DAT0  		0x64//BAT  真实电压 寄存器
 #define BATVADC_DAT1  		0x65//BAT  真实电压 寄存器
+
+
+
+
+
+
+
+#define BATOCV_DAT0  		0x64//BATOCV  电压 寄存器 低8bit 
+#define BATOCV_DAT1  		0x65//BATOCV  电压 寄存器	高8bit
+
 
 
 /* CTRL1 register */
@@ -157,6 +172,14 @@
 #define IP5328P_EN_BOOST		BIT(2)//
 #define IP5328P_EN_LED			BIT(0)//
 #define IP5328P_EN_KEY			BIT(3)//
+
+
+
+
+#define IP5328P_EN_F_RST		(0x0 << 7)//
+
+#define IP5328P_EN_RST			(0x1 << 5)//
+
 
 
 
@@ -279,6 +302,13 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 	u8 BAT_H_8bit;
 	u8 BAT_L_8bit;
 	int ret;
+	int i=0;
+	int a=0;
+	int c=10000;
+	u16 V_BAT;
+	
+	u16 V_BAT_F;
+	
 	u8 intstat[IP5328P_NUM_INTREGS];
 	u8 EN_CHARGER;
 	u8 EN_BOOST;
@@ -303,12 +333,54 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 
 #endif
 
-	IP5328P_read_byte(pchg, BATVADC_DAT0, &BAT_H_8bit);
-	BAT_H_8bit = BAT_H_8bit & 0xFF;
-	printk("the value of IP5328P_EN_KEY = %d\n",BAT_H_8bit);
-	IP5328P_read_byte(pchg, BATVADC_DAT1, &BAT_L_8bit);
-	BAT_L_8bit = BAT_L_8bit & 0xFF;
-	printk("the value of IP5328P_EN_KEY = %d\n",BAT_L_8bit);
+
+	IP5328P_read_byte(pchg, IP5328P_CTRL2, &val);
+		val = val | 0x00;
+		
+	
+	IP5328P_write_byte(pchg, IP5328P_CTRL2, val);
+	
+	printk("the qwb009 value of IP5328P_FORCE_EN = %X\n",val);
+
+
+	while(c--){//打印真实电压值
+		
+
+	IP5328P_read_byte(pchg, BATVADC_DAT0, &BAT_L_8bit);
+	
+	
+	printk("the value of BAT_L_8bit = %X\n",BAT_L_8bit);
+
+	IP5328P_read_byte(pchg, BATVADC_DAT1, &BAT_H_8bit);
+	
+	printk("the value of BAT_H_8bit = %X\n",BAT_H_8bit);
+	
+	V_BAT = (BAT_H_8bit<<8) + BAT_L_8bit ;
+	
+	printk("the value of HEX  V_BAT = %X\n",V_BAT);
+	
+	printk("the value of int V_BAT = %d\n",V_BAT);
+	
+	if(V_BAT==0xffff)		
+	printk("the value is err as V_BAT  = %x\n",V_BAT);
+
+	
+	V_BAT_F = (V_BAT*0.00026855 + 2.6) ;
+	V_BAT_F = (int)V_BAT_F;
+
+	for(i= 0;i<10000;i++){
+
+
+	for(a= 0;a<10000;a++);
+
+	}
+	
+	//printk("the value of V_BAT_F = %d\n",V_BAT_F);
+	//pm_relax(1000);
+	//return V_BAT_F;
+
+	}
+
 
 }
 
