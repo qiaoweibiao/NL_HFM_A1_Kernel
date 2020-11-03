@@ -1,5 +1,5 @@
 #!/bin/sh
 git add .
-git commit -m"change the define of ip5328p  "
+git commit -m"ip5328P can read of reg"
 git pull origin master
 git push origin master

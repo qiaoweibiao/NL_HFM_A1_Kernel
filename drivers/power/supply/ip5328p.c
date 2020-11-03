@@ -18,7 +18,7 @@
 #include <linux/platform_data/ip5328p.h>
 #include <linux/of.h>
 
-#define LP8788_NUM_INTREGS	2
+#define IP5328P_NUM_INTREGS	2
 #define DEFAULT_DEBOUNCE_MSEC	270
 
 
@@ -137,20 +137,33 @@
 #endif
 
 /*以下是原来代码中的寄存器设置*/
-#define IP5328P_CTRL1		0x01//boost 和 和 charger  使能寄存器
+#define IP5328P_CTRL1		0x01//boost 和 charger  使能寄存器
 #define IP5328P_CTRL2		0x03//按键控制寄存器
-#define IP5328P_SWCTRL		0x3
+#define IP5328P_CTRL4		0x05//LED 控制
 #define IP5328P_INT1		0x7E//异常标志位
 #define IP5328P_INT2		0x7F//按键和过压标志
 #define IP5328P_STATUS1		0xD1//系统状态指示寄存器
 #define IP5328P_STATUS2		0XDB//电量信息寄存器
 #define IP5328P_CHGCTRL2	0X1C//typec PD  协议使能寄存器
 #define IP5328P_CHGCTRL2	0X1C//typec PD  协议使能寄存器
+#define IP5328P_SWCTRL		0XDB//typec PD  协议使能寄存器
+
 
 
 /* CTRL1 register */
-#define IP5328P_CP_EN		BIT(1)
-#define IP5328P_ADC_EN		BIT(2)//
+#define IP5328P_EN_CHARGER		BIT(1)
+#define IP5328P_EN_BOOST		BIT(2)//
+#define IP5328P_EN_LED			BIT(0)//
+#define IP5328P_EN_KEY			BIT(3)//
+
+
+
+
+
+
+
+
+
 #define IP5328P_ID200_EN		BIT(4)
 
 /* CTRL2 register */
@@ -190,10 +203,10 @@ enum IP5328P_dev_id {
 };
 
 enum IP5328P_die_temp {
-	LP8788_TEMP_75C,
-	LP8788_TEMP_95C,
-	LP8788_TEMP_115C,
-	LP8788_TEMP_135C,
+	IP5328P_TEMP_75C,
+	IP5328P_TEMP_95C,
+	IP5328P_TEMP_115C,
+	IP5328P_TEMP_135C,
 };
 
 struct IP5328P_psy {
@@ -227,7 +240,7 @@ static int IP5328P_read_bytes(struct IP5328P_chg *pchg, u8 reg, u8 *data, u8 len
 	ret = i2c_smbus_read_i2c_block_data(pchg->client, reg, len, data);
 	mutex_unlock(&pchg->xfer_lock);
 
-	return (ret != len) ? -EIO : 0;
+	return (ret != len) ? -EIO : 0;//判断语句 return  -EIO : 0
 }
 
 static inline int IP5328P_read_byte(struct IP5328P_chg *pchg, u8 reg, u8 *data)
@@ -259,25 +272,34 @@ static bool IP5328P_is_charger_attached(const char *name, int id)
 static int IP5328P_init_device(struct IP5328P_chg *pchg)
 {
 	u8 val;
+	u8 val_LED;
+
+
+	u8 val_KEY;
 	int ret;
+	u8 intstat[IP5328P_NUM_INTREGS];
+	u8 EN_CHARGER;
+	u8 EN_BOOST;
 
-	/* 读取是否为异常 */
-	ret = IP5328P_read_bytes(pchg, IP5328P_INT1,0x7,0xFF);
-	printk("qwb008 the value of ret is =%d\n ", ret);
-
+	IP5328P_read_byte(pchg, IP5328P_CTRL1, &val);
 	
-	ret = IP5328P_write_byte(pchg, IP5328P_INT1, 0xFF);
-	printk("qwb008 the value of ret is =%d\n ", ret);
-	if(ret)
-		return ret;
-		
-	val = IP5328P_CP_EN;
-	ret = IP5328P_write_byte(pchg, IP5328P_CTRL1, val);
-	if (ret)
-		return ret;
+	val = val & IP5328P_EN_CHARGER;
+	printk("the value of IP5328P_EN_CHARGER = %d\n",val);
 
-	val = IP5328P_INT_EN | IP5328P_CHGDET_EN;
-	return IP5328P_write_byte(pchg, IP5328P_CTRL2, val);
+	IP5328P_read_byte(pchg, IP5328P_CTRL4, &val_LED);
+	
+	val_LED = val_LED & IP5328P_EN_LED;
+	printk("the value of IP5328P_EN_LED = %d\n",val_LED);
+
+	IP5328P_read_byte(pchg, IP5328P_CTRL4, &val_KEY);
+
+
+	val_KEY = val_KEY & IP5328P_EN_KEY;
+	printk("the value of IP5328P_EN_KEY = %d\n",val_KEY);
+
+	IP5328P_write_byte(pchg, IP5328P_EN_KEY, 0x0);
+	
+
 }
 
 static int IP5328P_is_dedicated_charger(struct IP5328P_chg *pchg)
@@ -348,11 +370,11 @@ static void IP5328P_delayed_func(struct work_struct *_work)
 {
 	struct IP5328P_chg *pchg = container_of(_work, struct IP5328P_chg,
 						work.work);
-	u8 intstat[LP8788_NUM_INTREGS];
+	u8 intstat[IP5328P_NUM_INTREGS];
 	u8 idno;
 	u8 vbus;
 
-	if (IP5328P_read_bytes(pchg, IP5328P_INT1, intstat, LP8788_NUM_INTREGS)) {
+	if (IP5328P_read_bytes(pchg, IP5328P_INT1, intstat, IP5328P_NUM_INTREGS)) {
 		dev_err(pchg->dev, "can not read INT registers\n");
 		return;
 	}
@@ -445,9 +467,9 @@ static int IP5328P_charger_get_property(struct power_supply *psy,
 static bool IP5328P_is_high_temperature(enum IP5328P_die_temp temp)
 {
 	switch (temp) {
-	case LP8788_TEMP_95C:
-	case LP8788_TEMP_115C:
-	case LP8788_TEMP_135C:
+	case IP5328P_TEMP_95C:
+	case IP5328P_TEMP_115C:
+	case IP5328P_TEMP_135C:
 		return true;
 	default:
 		return false;
@@ -539,13 +561,7 @@ static void IP5328P_charger_changed(struct power_supply *psy)
 	}
 }
 
-static const struct power_supply_desc IP5328P_ac_desc = {
-	.name			= "ac",
-	.type			= POWER_SUPPLY_TYPE_MAINS,
-	.properties		= IP5328P_charger_prop,
-	.num_properties		= ARRAY_SIZE(IP5328P_charger_prop),
-	.get_property		= IP5328P_charger_get_property,
-};
+
 
 static const struct power_supply_desc IP5328P_usb_desc = {
 	.name			= "usb",
@@ -555,14 +571,6 @@ static const struct power_supply_desc IP5328P_usb_desc = {
 	.get_property		= IP5328P_charger_get_property,
 };
 
-static const struct power_supply_desc IP5328P_batt_desc = {
-	.name			= "main_batt",
-	.type			= POWER_SUPPLY_TYPE_BATTERY,
-	.properties		= IP5328P_battery_prop,
-	.num_properties		= ARRAY_SIZE(IP5328P_battery_prop),
-	.get_property		= IP5328P_battery_get_property,
-	.external_power_changed	= IP5328P_charger_changed,
-};
 
 static int IP5328P_register_psy(struct IP5328P_chg *pchg)
 {
@@ -578,26 +586,11 @@ static int IP5328P_register_psy(struct IP5328P_chg *pchg)
 	psy_cfg.supplied_to = battery_supplied_to;
 	psy_cfg.num_supplicants = ARRAY_SIZE(battery_supplied_to);
 
-	psy->ac = power_supply_register(pchg->dev, &IP5328P_ac_desc, &psy_cfg);
-	if (IS_ERR(psy->ac))
-		goto err_psy_ac;
 
 	psy->usb = power_supply_register(pchg->dev, &IP5328P_usb_desc,
 					 &psy_cfg);
-	if (IS_ERR(psy->usb))
-		goto err_psy_usb;
 
-	psy->batt = power_supply_register(pchg->dev, &IP5328P_batt_desc, NULL);
-	if (IS_ERR(psy->batt))
-		goto err_psy_batt;
 
-	return 0;
-
-err_psy_batt:
-	power_supply_unregister(psy->usb);
-err_psy_usb:
-	power_supply_unregister(psy->ac);
-err_psy_ac:
 	return -EPERM;
 }
 
@@ -693,13 +686,13 @@ static int IP5328P_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 
 	mutex_init(&pchg->xfer_lock);
 
-	ret = IP5328P_init_device(pchg);
+	ret = IP5328P_init_device(pchg);//初始化设备
 	if (ret) {
 		dev_err(pchg->dev, "i2c communication err: %d", ret);
 		return ret;
 	}
 
-	ret = IP5328P_register_psy(pchg);
+	ret = IP5328P_register_psy(pchg);//设备寄存器
 	if (ret) {
 		dev_err(pchg->dev, "power supplies register err: %d", ret);
 		return ret;
