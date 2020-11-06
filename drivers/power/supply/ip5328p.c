@@ -18,8 +18,16 @@
 #include <linux/platform_data/ip5328p.h>
 #include <linux/of.h>
 
+#include <linux/delay.h>
+
+
+#define IP5328P_MANUFACTURER		"injoinic"
+#define IP5328P_B_IC_KEY			"B_IC_KEY"
+
+
 #define IP5328P_NUM_INTREGS	2
 #define DEFAULT_DEBOUNCE_MSEC	270
+
 
 
 
@@ -294,6 +302,7 @@ static bool IP5328P_is_charger_attached(const char *name, int id)
 	return id >= IP5328P_ID_TA && id <= IP5328P_ID_USB_CHG;
 }
 
+
 static int IP5328P_init_device(struct IP5328P_chg *pchg)
 {
 	u8 val;
@@ -304,85 +313,43 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 	int ret;
 	int i=0;
 	int a=0;
-	int c=10000;
-	u16 V_BAT;
+	int c=200;
+	u16 V_BAT;    
 	
-	u16 V_BAT_F;
+	u32 V_BAT_F;
 	
 	u8 intstat[IP5328P_NUM_INTREGS];
 	u8 EN_CHARGER;
 	u8 EN_BOOST;
-
 	
-#if 0
-	IP5328P_read_byte(pchg, IP5328P_CTRL1, &val);
-	
-	val = val & IP5328P_EN_CHARGER;
-	printk("the value of IP5328P_EN_CHARGER = %d\n",val);
-
-	IP5328P_read_byte(pchg, IP5328P_CTRL4, &val_LED);
-	
-	val_LED = val_LED & IP5328P_EN_LED;
-	printk("the value of IP5328P_EN_LED = %d\n",val_LED);
-
-	IP5328P_read_byte(pchg, IP5328P_CTRL4, &val_KEY);
-
-
-	val_KEY = val_KEY & IP5328P_EN_KEY;
-	printk("the value of IP5328P_EN_KEY = %d\n",val_KEY);
-
-#endif
-
-
-	IP5328P_read_byte(pchg, IP5328P_CTRL2, &val);
-		val = val | 0x00;
-		
-	
-	IP5328P_write_byte(pchg, IP5328P_CTRL2, val);
-	
-	printk("the qwb009 value of IP5328P_FORCE_EN = %X\n",val);
-
-
 	while(c--){//打印真实电压值
 		
 
 	IP5328P_read_byte(pchg, BATVADC_DAT0, &BAT_L_8bit);
-	
-	
-	printk("the value of BAT_L_8bit = %X\n",BAT_L_8bit);
 
 	IP5328P_read_byte(pchg, BATVADC_DAT1, &BAT_H_8bit);
+	V_BAT = (BAT_H_8bit<<8) + BAT_L_8bit;
 	
-	printk("the value of BAT_H_8bit = %X\n",BAT_H_8bit);
+	V_BAT_F = V_BAT*26855 + 260000000;
 	
-	V_BAT = (BAT_H_8bit<<8) + BAT_L_8bit ;
-	
-	printk("the value of HEX  V_BAT = %X\n",V_BAT);
-	
-	printk("the value of int V_BAT = %d\n",V_BAT);
-	
-	if(V_BAT==0xffff)		
-	printk("the value is err as V_BAT  = %x\n",V_BAT);
+	printk("the value of int 000000000000 V_BAT_F = %d\n",V_BAT_F);
+	mdelay(500);
 
+	IP5328P_read_byte(pchg, BATOCV_DAT0, &BAT_L_8bit);
+
+	IP5328P_read_byte(pchg, BATOCV_DAT1, &BAT_H_8bit);
+	V_BAT = (BAT_H_8bit<<8) + BAT_L_8bit;
 	
-	V_BAT_F = (V_BAT*0.00026855 + 2.6) ;
-	V_BAT_F = (int)V_BAT_F;
+	V_BAT_F = V_BAT*26855 + 260000000;
 
-	for(i= 0;i<10000;i++){
-
-
-	for(a= 0;a<10000;a++);
-
+	printk("the value of int 000000000000 V_SYS_F = %d\n",V_BAT_F);
 	}
 	
 	//printk("the value of V_BAT_F = %d\n",V_BAT_F);
 	//pm_relax(1000);
-	//return V_BAT_F;
+	return 1;
 
 	}
-
-
-}
 
 static int IP5328P_is_dedicated_charger(struct IP5328P_chg *pchg)
 {

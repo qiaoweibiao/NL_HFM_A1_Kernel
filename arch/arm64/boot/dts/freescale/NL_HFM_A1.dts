@@ -230,7 +230,7 @@
 			fsl,pins = <
 				MX8MM_IOMUXC_I2C4_SCL_I2C4_SCL          0x400001c3
 				MX8MM_IOMUXC_I2C4_SDA_I2C4_SDA          0x400001c3
-										  
+				MX8MM_IOMUXC_GPIO1_IO15_GPIO1_IO15		0x19						  
                         >;
                 };
 
@@ -687,7 +687,7 @@
 	pinctrl-names = "defaults";
 	//pinctrl-0 = <&pinctrl_i2c4>;
 	reg = <0x75>; 
-	//ip5328p,B_IC_KEY = <&gpio1 15 GPIO_ACTIVE_HIGH>;//
+	ip5328p,B_IC_KEY = <&gpio1 15 GPIO_ACTIVE_HIGH>;
 	//ip5328p,USB2_VBUS =     USB2_VBUS   可以检测usb的插入以及是 host 还是 device
 
 	};							 
