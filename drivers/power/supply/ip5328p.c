@@ -368,14 +368,14 @@ static int  IP5328P_BatCurrent(struct IP5328P_chg *pchg)
 //0x01连接手机等需供电设备(充电宝在放电)
 //0x02连接电源适配器(充电宝在充电)
 
-static int IP5328P_TypeC_Flag(struct IP5328P_chg *pchg)
+static int IP5328P_TypeC_OK(struct IP5328P_chg *pchg)
 {
 	u8 val;
 	
 	u8 flag=0;
 	u8 dat=0;
 
-	IP5328P_read_byte(pchg, SYS_STATUS, &val);
+	IP5328P_read_byte(pchg, TYPEC_OK, &val);
 	
 	if(val == 0xff){
 	printk("IP5328P not init as the val  = %d\n",val);
@@ -423,17 +423,17 @@ static int IP5328P_TypeC_Ability(struct IP5328P_chg *pchg)
 	return 0;
 	}
 
-	if(val >> 5 & 0x01){
+	if(val & 0x07 ==0x01 ){
 	flag =0x01;
 	printk("标准 USB ");
 	}
 
-	if(val >> 6 & 0x01){
+	if(val & 0x07 ==0x03){
 	flag =0x02;
 	printk("输出能力1.5A");
 	}	
 
-	if(val >> 7 & 0x01){
+	if(val & 0x07 ==0x07){
 	flag =0x03;
 	printk("输出能力3A");
 	}
@@ -466,7 +466,7 @@ static int IP5328P_KEY_IN(struct IP5328P_chg *pchg)
 //		5:  0恒压恒流总计时未超时   1恒压恒流总计时超时
 //		4:  0恒压计时未超时         1恒压计时超时
 //		3:  0涓流计时未超时         1涓流计时超时
-//		2:0 000空闲  001涓流充电  010恒流充电  011恒压充电 100停充检测 101电池充满结束 110超时
+//		2:  0000空闲  001涓流充电  010恒流充电  011恒压充电 100停充检测 101电池充满结束 110超时
 
 static int IP5328P_GHG_State(struct IP5328P_chg *pchg)
 {
@@ -599,14 +599,17 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 		printk("004 IP5328P not init as the val  = %d\n",ret);
 		return 0;
 		}
-	ret = IP5328P_TypeC_Flag(pchg);
+	ret = IP5328P_TypeC_OK(pchg);
 	if (ret == 0 )
 		{
 		printk("IP5328P_TypeC_Flag 未连接");
 		}
+	
+	ret = IP5328P_TypeC_Ability(pchg);
+
 	printk("IP5328P_init_device is OK = %d\n");
 
-	return 0;
+		return 0;
 
 }
 

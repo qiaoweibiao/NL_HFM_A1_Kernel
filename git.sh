@@ -1,5 +1,5 @@
 #!/bin/sh
 git add .
-git commit -m"ip5328p dirver is ok for the frist time"
+git commit -m"fix the err of IP5328P_TypeC_OK reg"
 git pull origin master
 git push origin master
