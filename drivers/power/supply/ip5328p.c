@@ -266,12 +266,57 @@ static int IP5328P_write_byte(struct IP5328P_chg *pchg, u8 reg, u8 data)
 static int IP5328P_SYS_Status(struct IP5328P_chg *pchg)
 {
 	u8 val;
+	u8 val1;
 	IP5328P_read_byte(pchg, SYS_STATUS, &val);//qwb007	
-	if(val == 0xff){
+	IP5328P_read_byte(pchg, SYS_STATUS, &val1);//qwb007	
+	
+	if((val == 0xff) | (val1 == 0xff)){
 	printk("IP5328P not init as the val  = %d\n",val);
 	return 0;
 	}
+
+	val1 = val1>> 4 & 0x01;
+	if val1 = 0x00;
+	printk("0:放电 1:充电 IP5328P 在放电 as the val1  = %d\n",val1);
+	else 
+		printk("0:放电 1:充电 IP5328P 充电 as the val1  = %d\n",val1);
+	
+	val = val &0x07;//
+	
+	switch(val){
+
+		case 0x00 :
+			printk("在待机 IP5328P_SYS_Status val	= %d\n",val);
+			break;
+		case 0x01 :
+			printk("在5V 充电	IP5328P_SYS_Status val = %d\n",val);
+			break;
+		case 0x02 :
+			printk("单口同充同放 充电	 IP5328P_SYS_Status val = %d\n",val);
+			break;	
+		case 0x03 :
+			printk("多口同充同放 充电	 IP5328P_SYS_Status val = %d\n",val);
+			break;			
+		case 0x04 :
+			printk("高压快充充电 充电	 IP5328P_SYS_Status val = %d\n",val);
+			break;			
+		
+		case 0x05 :
+			printk("5V放电 充电  IP5328P_SYS_Status val = %d\n",val);
+			break;	
+		case 0x06 :
+			printk("多口5V放电 充电	 IP5328P_SYS_Status val = %d\n",val);
+			break;
+		case 0x07 :
+			printk("高压快充放电 充电	 IP5328P_SYS_Status val = %d\n",val);
+			break;
+
+	}
+		
+
+
 	printk("IP5328P_SYS_Status val  = %d\n",val);
+	
 	return val;
 
 }
@@ -602,7 +647,7 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 	ret = IP5328P_TypeC_OK(pchg);
 	if (ret == 0 )
 		{
-		printk("IP5328P_TypeC_Flag 未连接");
+		printk("IP5328P_TypeC_OK 未连接");
 		}
 	
 	ret = IP5328P_TypeC_Ability(pchg);
