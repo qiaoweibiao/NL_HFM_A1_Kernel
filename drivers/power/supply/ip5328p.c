@@ -276,9 +276,9 @@ static int IP5328P_SYS_Status(struct IP5328P_chg *pchg)
 	}
 
 	val1 = val1>> 4 & 0x01;
-	if val1 = 0x00;
+	if (val1 == 0x00)
 	printk("0:放电 1:充电 IP5328P 在放电 as the val1  = %d\n",val1);
-	else 
+	if (val1 == 0x01) 
 		printk("0:放电 1:充电 IP5328P 充电 as the val1  = %d\n",val1);
 	
 	val = val &0x07;//
@@ -286,36 +286,35 @@ static int IP5328P_SYS_Status(struct IP5328P_chg *pchg)
 	switch(val){
 
 		case 0x00 :
-			printk("在待机 IP5328P_SYS_Status val	= %d\n",val);
+			printk("在待机 IP5328P_SYS_Status val	= %x\n",val);
 			break;
 		case 0x01 :
-			printk("在5V 充电	IP5328P_SYS_Status val = %d\n",val);
+			printk("在5V 充电	IP5328P_SYS_Status val = %x\n",val);
 			break;
 		case 0x02 :
-			printk("单口同充同放 充电	 IP5328P_SYS_Status val = %d\n",val);
+			printk("单口同充同放 充电	 IP5328P_SYS_Status val = %x\n",val);
 			break;	
 		case 0x03 :
-			printk("多口同充同放 充电	 IP5328P_SYS_Status val = %d\n",val);
+			printk("多口同充同放 充电	 IP5328P_SYS_Status val = %x\n",val);
 			break;			
 		case 0x04 :
-			printk("高压快充充电 充电	 IP5328P_SYS_Status val = %d\n",val);
+			printk("高压快充充电 充电	 IP5328P_SYS_Status val = %x\n",val);
 			break;			
 		
 		case 0x05 :
-			printk("5V放电 充电  IP5328P_SYS_Status val = %d\n",val);
+			printk("5V放电 充电  IP5328P_SYS_Status val = %x\n",val);
 			break;	
 		case 0x06 :
-			printk("多口5V放电 充电	 IP5328P_SYS_Status val = %d\n",val);
+			printk("多口5V放电 充电	 IP5328P_SYS_Status val = %x\n",val);
 			break;
 		case 0x07 :
-			printk("高压快充放电 充电	 IP5328P_SYS_Status val = %d\n",val);
+			printk("高压快充放电 充电	 IP5328P_SYS_Status val = %x\n",val);
 			break;
 
 	}
-		
+	
 
-
-	printk("IP5328P_SYS_Status val  = %d\n",val);
+	printk("IP5328P_SYS_Status() 执行完毕     val  = %x\n",val);
 	
 	return val;
 
@@ -325,10 +324,10 @@ static int IP5328P_SYS_Status(struct IP5328P_chg *pchg)
 
 
 /////////读取电池电量显示级别(只能读到对应电量的LED个数)
-//返回：		0001 1111:4课灯亮  
-//////		0000 1111:3课灯亮
-//////		0000 0111:2课灯亮	
-//////		0000 0011:1课灯亮
+//返回：		0001 1111:4颗灯亮
+//////		0000 1111:3颗灯亮
+//////		0000 0111:2颗灯亮
+//////		0000 0011:1颗灯亮
 //////		0000 0001:放电时低电闪灯 
 //////		0000 0000:关机
 
@@ -337,7 +336,44 @@ static int IP5328P_Electricity(struct IP5328P_chg *pchg)
 
 
 	u8 dat;
+	
+	IP5328P_read_byte(pchg, SYS_CTL6, &dat);
+
+	dat = dat | 0xE0;
+	
+	mdelay(500);
+	
+	IP5328P_write_byte(pchg, SYS_CTL6, dat);//写为4灯模式
+	
+	printk(" qwb007 SYS_CTL6 val	= %x\n",dat);
+
+	mdelay(500);
 	IP5328P_read_byte(pchg, LED_STATUS, &dat);
+	dat = dat & 0x1F;
+
+	switch(dat){
+	
+			case 0x00 :
+				printk("关机 IP5328P_Electricity val	= %x\n",dat);
+				break;
+			case 0x01 :
+				printk("放电时低电闪灯 IP5328P_Electricity val	= %x\n",dat);
+				break;
+			case 0x03 :
+				printk("1颗灯亮 IP5328P_Electricity val	= %x\n",dat);
+				break;	
+			case 0x07 :
+				printk("2颗灯亮 IP5328P_Electricity val	= %x\n",dat);
+				break;			
+			case 0x0F :
+				printk("3颗灯亮 IP5328P_Electricity val	= %x\n",dat);
+				break;			
+			case 0x1F :
+				printk("4颗灯亮 IP5328P_Electricity val	= %x\n",dat);
+				break;		
+	
+		}
+
 	return dat;
 
 }
@@ -359,10 +395,7 @@ static int IP5328P_BatVoltage(struct IP5328P_chg *pchg)
 	V_BAT_F = V_BAT*26855 + 260000000;
 	printk("the value of int 000000000000 V_BAT_F = %d\n",V_BAT_F);
 	return V_BAT_F;
-
 }
-
-
 
 //读取电池电压经过电芯内阻和电芯电流进行补偿后的电压
 //由于kernel 打印 float 类型不方便 所以 返回u32 的电压值整数 需要除以100000000 mv 260000000 表示2.6mv 
