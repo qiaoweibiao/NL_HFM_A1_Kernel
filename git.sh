@@ -1,5 +1,5 @@
 #!/bin/sh
 git add .
-git commit -m"fix the err of IP5328P_TypeC_OK reg"
+git commit -m"add IC_KEY_IN to p5328P "
 git pull origin master
 git push origin master

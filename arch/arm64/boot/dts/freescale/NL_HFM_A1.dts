@@ -687,7 +687,7 @@
 	pinctrl-names = "defaults";
 	//pinctrl-0 = <&pinctrl_i2c4>;
 	reg = <0x75>; 
-	ip5328p,B_IC_KEY = <&gpio1 15 GPIO_ACTIVE_HIGH>;
+	B_IC_KEY = <&gpio1 15 GPIO_ACTIVE_LOW>;
 	//ip5328p,USB2_VBUS =     USB2_VBUS   可以检测usb的插入以及是 host 还是 device
 
 	};							 

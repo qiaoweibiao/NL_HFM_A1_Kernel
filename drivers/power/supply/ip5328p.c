@@ -17,8 +17,21 @@
 #include <linux/power_supply.h>
 #include <linux/platform_data/ip5328p.h>
 #include <linux/of.h>
+#include <linux/gpio/consumer.h>
 
 #include <linux/delay.h>
+
+#include <linux/device.h>
+#include <linux/gpio.h>
+
+#include <linux/gpio/consumer.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
+
+#include <linux/slab.h>
 
 
 #define IP5328P_MANUFACTURER		"injoinic"
@@ -26,10 +39,6 @@
 
 #define IP5328P_NUM_INTREGS	2
 #define DEFAULT_DEBOUNCE_MSEC	270
-
-
-
-
 
 #if 1
 
@@ -151,74 +160,6 @@
 #define BIT7		BIT(7)
 
 
-
-
-
-
-
-
-
-
-
-
-#endif
-
-#if 0
-/*以下是原来代码中的寄存器设置*/
-#define SYS_CTRL1			0x01//boost 和 charger  使能寄存器
-#define SYS_CTRL2			0x03//按键控制寄存器
-#define IP5328P_CTRL4		0x05//LED 控制
-#define IP5328P_INT1		0x7E//异常标志位
-#define IP5328P_INT2		0x7F//按键和过压标志
-#define IP5328P_STATUS1		0xD1//系统状态指示寄存器
-#define IP5328P_STATUS2		0XDB//电量信息寄存器
-#define IP5328P_CHGCTRL2	0X1C//typec PD  协议使能寄存器
-#define IP5328P_CHGCTRL2	0X1C//typec PD  协议使能寄存器
-#define IP5328P_SWCTRL		0XDB//typec PD  协议使能寄存器
-#define IP5328P_FORCE_EN  	0x5B//寄存器关机和复位控制寄存器
-#define BATVADC_DAT0  		0x64//BAT  真实电压 寄存器
-#define BATVADC_DAT1  		0x65//BAT  真实电压 寄存器
-#define BATOCV_DAT0  		0x64//BATOCV  电压 寄存器 低8bit 
-#define BATOCV_DAT1  		0x65//BATOCV  电压 寄存器	高8bit
-
-/* CTRL1 register */
-#define IP5328P_EN_CHARGER		BIT(1)
-#define IP5328P_EN_BOOST		BIT(2)//
-#define IP5328P_EN_LED			BIT(0)//
-#define IP5328P_EN_KEY			BIT(3)//
-
-#define IP5328P_EN_F_RST		(0x0 << 7)//
-
-#define IP5328P_EN_RST			(0x1 << 5)//
-#define IP5328P_ID200_EN		BIT(4)
-
-/* CTRL2 register */
-#define IP5328P_CHGDET_EN	BIT(1)
-#define IP5328P_INT_EN		BIT(6)
-
-/* SWCTRL register */
-#define IP5328P_SW_DM1_DM	(0x0 << 0)
-#define IP5328P_SW_DM1_HiZ	(0x7 << 0)
-#define IP5328P_SW_DP2_DP	(0x0 << 3)
-#define IP5328P_SW_DP2_HiZ	(0x7 << 3)
-
-/* INT1 register */
-#define IP5328P_IDNO		(0xF << 0)
-#define IP5328P_VBUS		BIT(4)
-
-/* STATUS1 register */
-#define IP5328P_CHGSTAT		(3 << 4)
-#define IP5328P_CHPORT		BIT(6)
-#define IP5328P_DCPORT		BIT(7)
-#define IP5328P_STAT_EOC		0x30
-
-/* STATUS2 register */
-#define IP5328P_TEMP_STAT	(3 << 5)
-#define IP5328P_TEMP_SHIFT	5
-
-/* CHGCTRL2 register */
-#define IP5328P_ICHG_SHIFT	4
-
 #endif
 
 struct IP5328P_chg {
@@ -227,6 +168,8 @@ struct IP5328P_chg {
 	struct mutex xfer_lock;
 	struct IP5328P_psy *psy;
 	struct IP5328P_platform_data *pdata;
+	//struct gpio_desc *B_IC_KEY;
+	int B_IC_KEY;
 	/* Interrupt Handling */
 };
 
@@ -538,6 +481,30 @@ static int IP5328P_KEY_IN(struct IP5328P_chg *pchg)
 	return val;
 }
 
+
+
+
+
+
+//按键 60ms < 2s  	短按 打开电量显示灯和升压输出
+//按键		> 2s  	长按 开启或者关闭照明 WLED
+//按键		< 30ms  无效 
+//按键 				1s内连续2次短按 会关闭升压输出、电量显示和照明 WLED
+//按键 				超长按 10s 可复位整个系统
+
+
+static int IP5328P_IC_KEY_IN(struct IP5328P_chg *pchg)		
+{
+
+	gpio_set_value_cansleep(pchg->B_IC_KEY, 0);
+	printk("qwb0007gpio_set_value_cansleep val = %d\n");
+	mdelay(100);
+	gpio_set_value_cansleep(pchg->B_IC_KEY, 1);
+	printk("qwb0007gpio_set_value_cansleep val = %d\n");
+	return pchg;
+ 
+}
+
 //获取充电状态
 //返回：7:	0可能刚好是在停充检测，也可能是充满了，也可能是异常保护了	 1 正在充电
 //		6:  0未充满  1充满 
@@ -644,7 +611,6 @@ static int IP5328P_BAT_LOW(struct IP5328P_chg *pchg)
 }
 
 
-
 static int IP5328P_init_device(struct IP5328P_chg *pchg)
 
 {
@@ -653,10 +619,19 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 	//如果是充电状态则直接读取i2c相关数值，由于有充电行为则继续可以开机
 	//如果是非充电状态则连续2次按键（间隔70ms-80ms）然后 50ms 后读取 i2c的值 主要是电压值 以确认是否需要关机。满足开机电压则继续 开机 否则关机
 	ret = IP5328P_SYS_Status(pchg);
+
+	
 	if (ret == 0 )
 		{
 		printk("001 IP5328P not init as the val  = %d\n",ret);
-		return 0;
+		
+		ret = IP5328P_IC_KEY_IN(pchg);
+		printk("IP5328P_IC_KEY_IN as the val  = %d\n",ret);
+
+		ret = IP5328P_SYS_Status(pchg);
+		printk("IP5328P_SYS_Status ret = %d\n",ret);
+
+		
 		}
 	ret = IP5328P_Electricity(pchg);
 	if (ret == 0 )
@@ -735,7 +710,7 @@ static struct IP5328P_platform_data *IP5328P_parse_dt(struct device *dev)
 		if (!strcmp(type, "usb"))
 			pdata->usb = IP5328P_parse_charge_pdata(dev, child);
 	}
-
+	
 	return pdata;
 }
 #else
@@ -756,7 +731,8 @@ static int IP5328P_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 {	
 	struct IP5328P_chg *pchg;
 	
-	struct IP5328P_platform_data *pdata;	
+	struct IP5328P_platform_data *pdata;
+	
 	int ret;	
 	if (!i2c_check_functionality(cl->adapter, I2C_FUNC_SMBUS_I2C_BLOCK))
 		return -EIO;
@@ -776,8 +752,7 @@ static int IP5328P_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 
 	pchg->client = cl;//来源于结构体中
 	pchg->dev = &cl->dev;
-	pchg->pdata = pdata;
-	
+	pchg->pdata = pdata;				
 	i2c_set_clientdata(cl, pchg);
 
 	mutex_init(&pchg->xfer_lock);
