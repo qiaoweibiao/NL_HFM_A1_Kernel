@@ -60,9 +60,7 @@ struct IP5328P_platform_data {
 	u16 (*get_batt_level)(void);
 	u8 (*get_batt_capacity)(void);
 	u8 (*get_batt_temp)(void);
-	struct IP5328P_chg_param *ac;
-	struct IP5328P_chg_param *usb;
-	unsigned int debounce_msec;
+	int B_IC_KEY;
 };
 
 #endif

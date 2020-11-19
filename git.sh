@@ -1,5 +1,5 @@
 #!/bin/sh
 git add .
-git commit -m"add IC_KEY_IN to p5328P "
+git commit -m"kwy not work ip5328p "
 git pull origin master
 git push origin master
