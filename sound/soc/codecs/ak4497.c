@@ -878,43 +878,7 @@ static int ak4497_parse_dt(struct ak4497_priv *ak4497)
 	ak4497->mute_gpio = of_get_named_gpio(np, "ak4497,mute-gpio", 1);//PIN 控制 1:静音 0 解除静音
 	
 	//ak4497->pon_gpio = of_get_named_gpio(np, "ak4497,pon-gpio", 1);//1:外部电源上电 0:外部电源掉电
-	/*
-	while(1)
-		{
-		
-		mdelay(1500);
-	
-		gpio_set_value_cansleep(ak4497->pon_gpio, 1);//1:外部电源上电 0:外部电源掉电
-		printk("qwb007	pin conctrol mute power on  1   ");
-		
-		mdelay(1500);
-		gpio_set_value_cansleep(ak4497->pon_gpio, 0);//1:外部电源上电 0:外部电源掉电
 
-		printk("qwb007	pin conctrol mute power on  0   ");
-
-		mdelay(5500);
-
-		gpio_set_value_cansleep(ak4497->mute_gpio, 0);//PIN 控制 1:静音 0 解除静音
-		printk("qwb007	5S pin conctrol mute_gpio 0	didi ");
-
-		mdelay(1500);
-	
-		gpio_set_value_cansleep(ak4497->pon_gpio, 1);//1:外部电源上电 0:外部电源掉电
-		printk("qwb007	pin conctrol mute power on  1   ");
-		
-		mdelay(1500);
-		gpio_set_value_cansleep(ak4497->pon_gpio, 0);//1:外部电源上电 0:外部电源掉电
-
-		printk("qwb007	pin conctrol mute power on  0   ");
-
-		mdelay(5500);
-
-		gpio_set_value_cansleep(ak4497->mute_gpio, 1);//PIN 控制 1:静音 0 解除静音
-		printk("qwb007	5S pin conctrol mute_gpio 1	mute ");
-
-	}
-
-	*/
 	
 	ak4497->pdn_gpio = of_get_named_gpio(np, "ak4497,pdn-gpio", 0);//ak4497 芯片上电
 	if (ak4497->pdn_gpio < 0)

@@ -182,8 +182,6 @@ struct IP5328P_chg {
 	struct mutex xfer_lock;
 	struct IP5328P_psy *psy;
 	struct IP5328P_platform_data *pdata;
-	//struct gpio_desc *B_IC_KEY;
-	int B_IC_KEY;
 	/* Interrupt Handling */
 };
 
@@ -220,24 +218,22 @@ static struct IP5328P_platform_data *IP5328P_parse_dt(struct device *dev)
 	struct device_node *child;
 	struct IP5328P_platform_data *pdata;
 	const char *type;
-
+	int ret;
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		return ERR_PTR(-ENOMEM);
-
-
-	pdata->B_IC_KEY = of_get_named_gpio(np, "ip5328p,B_IC_KEY", 1);//1: pin 控制  0 :寄存器控制
-
-	printk("of_get_named_gpio   = %s\n",&pdata);
-	mdelay(2000);
-	
 	/* If charging parameter is not defined, just skip parsing the dt */
+
+
+	pdata->B_IC_KEY = of_get_named_gpio(np, "ip5328p,B_IC_KEY-gpio", 0);//0 GPIO 15 ok 
+	
+	printk("B_IC_KEY GPIO %d\n",pdata->B_IC_KEY);
+
+	
+	
 	return pdata;
+
 }
-
-
-
-
 
 //按键 60ms < 2s  	短按 打开电量显示灯和升压输出
 //按键		> 2s  	长按 开启或者关闭照明 WLED
@@ -245,21 +241,23 @@ static struct IP5328P_platform_data *IP5328P_parse_dt(struct device *dev)
 //按键 				1s内连续2次短按 会关闭升压输出、电量显示和照明 WLED
 //按键 				超长按 10s 可复位整个系统
 
+static int IP5328P_IC_KEY_IN(struct IP5328P_platform_data *pdata)	{
 
-static int IP5328P_IC_KEY_IN(struct IP5328P_chg *pchg)		
-{
+	int ret;
 
-	gpio_set_value_cansleep(pchg->B_IC_KEY, 0);//1:外部电源上电 0:外部电源掉电
-	mdelay(200);
-	gpio_set_value_cansleep(pchg->B_IC_KEY, 0);//1:外部电源上电 0:外部电源掉电
-	return 0;
+	ret = gpio_request(pdata->B_IC_KEY, "B_IC_KEY");
+
+	gpio_direction_output(pdata->B_IC_KEY, 0);
+	
+	gpio_set_value_cansleep(pdata->B_IC_KEY, 1);//0
+	mdelay(100);
+	gpio_set_value_cansleep(pdata->B_IC_KEY, 0);//0
+	
+	printk("IC 休眠 按键 唤醒 	  as the B_IC_KEY  = %d\n",pdata->B_IC_KEY);
+	mdelay(1000);
+	gpio_set_value_cansleep(pdata->B_IC_KEY, 1);//1
  
 }
-
-
-
-
-
 
 //获取芯片当前电源状态
 //第四位：0:放电 1:充电
@@ -271,56 +269,58 @@ static int IP5328P_SYS_Status(struct IP5328P_chg *pchg)
 {
 	u8 val;
 	u8 val1;
+	int ret;
 	IP5328P_read_byte(pchg, SYS_STATUS, &val);//qwb007	
-	IP5328P_read_byte(pchg, SYS_STATUS, &val1);//qwb007	
+	IP5328P_read_byte(pchg, KEY_IN, &val1);//qwb007	
 	
 	if((val == 0xff) | (val1 == 0xff)){
-	printk("IP5328P 休眠状态  = %d\n",val);
+	printk("SYS_STATUS 休眠状态 val     = %x\n",val);
+	printk("KEY_IN 休眠状态     val1 = %x\n",val1);
 	return 0;
 	}
-
-	val1 = val1>> 4 & 0x01;
-	if (val1 == 0x00)
-	printk("0:放电 1:充电 IP5328P 在放电 as the val1  = %d\n",val1);
-	if (val1 == 0x01) 
-		printk("0:放电 1:充电 IP5328P 充电 as the val1  = %d\n",val1);
-	
-	val = val &0x07;//
-	
-	switch(val){
-
-		case 0x00 :
-			printk("在待机 IP5328P_SYS_Status val	= %x\n",val);
-			break;
-		case 0x01 :
-			printk("在5V 充电	IP5328P_SYS_Status val = %x\n",val);
-			break;
-		case 0x02 :
-			printk("单口同充同放 充电	 IP5328P_SYS_Status val = %x\n",val);
-			break;	
-		case 0x03 :
-			printk("多口同充同放 充电	 IP5328P_SYS_Status val = %x\n",val);
-			break;			
-		case 0x04 :
-			printk("高压快充充电 充电	 IP5328P_SYS_Status val = %x\n",val);
-			break;			
+	else
+	{
+		val1 = val1>> 4 & 0x01;
+		if (val1 == 0x00)
+		printk("0:放电 1:充电 IP5328P 在放电 as the val1  = %d\n",val1);
+		if (val1 == 0x01) 
+			printk("0:放电 1:充电 IP5328P 充电 as the val1  = %d\n",val1);
 		
-		case 0x05 :
-			printk("5V放电 充电  IP5328P_SYS_Status val = %x\n",val);
-			break;	
-		case 0x06 :
-			printk("多口5V放电 充电	 IP5328P_SYS_Status val = %x\n",val);
-			break;
-		case 0x07 :
-			printk("高压快充放电 充电	 IP5328P_SYS_Status val = %x\n",val);
-			break;
+		val = val &0x07;//
+		
+			switch(val){
 
+				case 0x00 :
+					printk("在待机 IP5328P_SYS_Status val	= %x\n",val);
+					break;
+				case 0x01 :
+					printk("在5V 充电	IP5328P_SYS_Status val = %x\n",val);
+					break;
+				case 0x02 :
+					printk("单口同充同放 充电	 IP5328P_SYS_Status val = %x\n",val);
+					break;	
+				case 0x03 :
+					printk("多口同充同放 充电	 IP5328P_SYS_Status val = %x\n",val);
+					break;			
+				case 0x04 :
+					printk("高压快充充电 充电	 IP5328P_SYS_Status val = %x\n",val);
+					break;			
+				
+				case 0x05 :
+					printk("5V放电 充电  IP5328P_SYS_Status val = %x\n",val);
+					break;	
+				case 0x06 :
+					printk("多口5V放电 充电	 IP5328P_SYS_Status val = %x\n",val);
+					break;
+				case 0x07 :
+					printk("高压快充放电 充电	 IP5328P_SYS_Status val = %x\n",val);
+					break;
+
+					}
 	}
-	
 
 	printk("IP5328P_SYS_Status() 执行完毕     val  = %x\n",val);
-	
-	return val;
+		return val;
 
 }
 
@@ -397,7 +397,8 @@ static int IP5328P_BatVoltage(struct IP5328P_chg *pchg)
 	IP5328P_read_byte(pchg, BATVADC_DAT1, &BAT_H_8bit);
 	V_BAT = (BAT_H_8bit<<8) + BAT_L_8bit;
 	V_BAT_F = V_BAT*26855 + 260000000;
-	printk("the value of int 000000000000 V_BAT_F = %d\n",V_BAT_F);
+	printk("the value of IP5328P_BatVoltage V_BAT_F = %d\n",V_BAT_F);
+	mdelay(4000);
 	return V_BAT_F;
 }
 
@@ -416,7 +417,7 @@ static int IP5328P_BatOCV(struct IP5328P_chg *pchg)
 	IP5328P_read_byte(pchg, BATOCV_DAT1, &BAT_H_8bit);
 	V_BAT = (BAT_H_8bit<<8) + BAT_L_8bit;
 	V_BAT_F = V_BAT*26855 + 260000000;
-	printk("the value of int 000000000000 V_BAT_F = %d\n",V_BAT_F);
+	printk("the value of IP5328P_BatOCV V_BAT_F = %d\n",V_BAT_F);
 	return V_BAT_F;
 }
 
@@ -441,6 +442,7 @@ static int  IP5328P_BatCurrent(struct IP5328P_chg *pchg)
 	}
 		
 	Current = Current*127883;//计算为实际电流值 需要除以 100000000 mA
+	printk("the value of IP5328P_BatCurrent Current = %d\n",Current);
 	return Current;
 }
 
@@ -539,6 +541,7 @@ static int IP5328P_KEY_IN(struct IP5328P_chg *pchg)
 	val = IP5328P_read_byte(pchg, KEY_IN, &val);
 	if(val==0xff)
 		return 0;
+	printk("IP5328P_KEY_IN val = %d\n",val);
 	return val;
 }
 
@@ -651,36 +654,26 @@ static int IP5328P_BAT_LOW(struct IP5328P_chg *pchg)
 static int IP5328P_init_device(struct IP5328P_chg *pchg)
 
 {
-	u8 ret;
+	int ret;
 	//判断目前是否在充电状态 充电状态可从 USB2_VBUS 状态获取，确认下这时候这部分驱动是否已经启用
 	//如果是充电状态则直接读取i2c相关数值，由于有充电行为则继续可以开机
 	//如果是非充电状态则连续2次按键（间隔70ms-80ms）然后 50ms 后读取 i2c的值 主要是电压值 以确认是否需要关机。满足开机电压则继续 开机 否则关机
-	ret = IP5328P_SYS_Status(pchg);
-
 
 	ret = IP5328P_Electricity(pchg);
 
 	ret = IP5328P_BatVoltage(pchg);
-	
-	//ret = IP5328P_BatCurrent(pchg);
-	
-	//ret = IP5328P_TypeC_OK(pchg);
-	
-	//ret = IP5328P_TypeC_Ability(pchg);
 
-	printk("IP5328P_init_device is OK = %d\n");
+	
+	ret = IP5328P_BatCurrent(pchg);
+	ret = IP5328P_TypeC_OK(pchg);
+	
+	ret = IP5328P_TypeC_Ability(pchg);
+	if(ret ==0)
+		return 0;
 
 	return ret;
 
 }
-
-
-
-
-
-
-
-
 
 
 /*------------------------------------------------写芯片参数功能函数-end----------------------------------------------------*/
@@ -694,19 +687,23 @@ static int IP5328P_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 	
 	struct IP5328P_platform_data *pdata;
 
-	int ret;	
-
+	int ret;
+	
+	
 	
 	if (!i2c_check_functionality(cl->adapter, I2C_FUNC_SMBUS_I2C_BLOCK))
 		return -EIO;
 
 	if (cl->dev.of_node) {//dts 参数传入
-		pdata = IP5328P_parse_dt(&cl->dev);
-		if (IS_ERR(pdata))
-			return PTR_ERR(pdata);
-	} else {
-		pdata = dev_get_platdata(&cl->dev);
-	}
+	
+			pdata = IP5328P_parse_dt(&cl->dev);
+			if (IS_ERR(pdata))
+				return PTR_ERR(pdata);
+		} 
+	
+		else {
+			pdata = dev_get_platdata(&cl->dev);
+		}
 
 	pchg = devm_kzalloc(&cl->dev, sizeof(*pchg), GFP_KERNEL);
 	if (!pchg)
@@ -719,12 +716,11 @@ static int IP5328P_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 	i2c_set_clientdata(cl, pchg);
 
 	mutex_init(&pchg->xfer_lock);
-
-	ret = IP5328P_SYS_Status(pchg);	
-		if (ret == 0){	
-			ret = IP5328P_IC_KEY_IN(pchg);
-			printk("IC 休眠 按键 唤醒 	  as the val  = %d\n",ret);
-			}	
+		
+	ret = IP5328P_SYS_Status(pchg);
+	if(ret == 0)
+		ret = IP5328P_IC_KEY_IN(pdata);
+	
 	ret = IP5328P_init_device(pchg);//初始化设备
 	if (ret == 0) {
 		dev_err(pchg->dev, "i2c communication err: %d", ret);
