@@ -280,11 +280,11 @@ static int IP5328P_SYS_Status(struct IP5328P_chg *pchg)
 	}
 	else
 	{
-		val1 = val1>> 4 & 0x01;
+		val1 = val1 >> 4 & 0x01;
 		if (val1 == 0x00)
-		printk("0:放电 1:充电 IP5328P 在放电 as the val1  = %d\n",val1);
+		printk("0:VIN 没电   as the val1  = %d\n",val1);
 		if (val1 == 0x01) 
-			printk("0:放电 1:充电 IP5328P 充电 as the val1  = %d\n",val1);
+			printk("1: VIN 有电   as the val1  = %d\n",val1);
 		
 		val = val &0x07;//
 		
@@ -663,14 +663,10 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 
 	ret = IP5328P_BatVoltage(pchg);
 
-	
 	ret = IP5328P_BatCurrent(pchg);
 	ret = IP5328P_TypeC_OK(pchg);
 	
 	ret = IP5328P_TypeC_Ability(pchg);
-	if(ret ==0)
-		return 0;
-
 	return ret;
 
 }
