@@ -662,6 +662,8 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 	ret = IP5328P_Electricity(pchg);
 
 	ret = IP5328P_BatVoltage(pchg);
+	
+	ret = IP5328P_BatOCV(pchg);
 
 	ret = IP5328P_BatCurrent(pchg);
 	ret = IP5328P_TypeC_OK(pchg);
