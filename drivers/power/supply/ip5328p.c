@@ -276,7 +276,7 @@ static int IP5328P_SYS_Status(struct IP5328P_chg *pchg)
 	if((val == 0xff) | (val1 == 0xff)){
 	printk("SYS_STATUS 休眠状态 val     = %x\n",val);
 	printk("KEY_IN 休眠状态     val1 = %x\n",val1);
-	return 0;
+	return 0xff;
 	}
 	else
 	{
@@ -440,7 +440,6 @@ static int  IP5328P_BatCurrent(struct IP5328P_chg *pchg)
 		Current=65535-Current;	//将负值电流转为正值
 
 	}
-		
 	Current = Current*127883;//计算为实际电流值 需要除以 100000000 mA
 	printk("the value of IP5328P_BatCurrent Current = %d\n",Current);
 	return Current;
@@ -454,31 +453,34 @@ static int  IP5328P_BatCurrent(struct IP5328P_chg *pchg)
 
 static int IP5328P_TypeC_OK(struct IP5328P_chg *pchg)
 {
-	u8 val;
-	
+	u8 val;	
 	u8 flag=0;
-	u8 dat=0;
-
+	u8 dat;	
 	IP5328P_read_byte(pchg, TYPEC_OK, &val);
+	dat = val >> 1 & 0x01;//0  1  
+	if (dat){
+	printk("YPE-C SRC 连接成功     flag = 0x01连接手机等需供电设备(充电宝在放电)");
+	flag = 0x01;
+	}
+
+	else {
+
+	printk("YPE-C SRC 未连接 ");
+		flag = 0x00;
+	}
 	
-	if(val == 0xff){
-	printk("IP5328P not init as the val  = %d\n",val);
-	return 0;
+	dat = val >> 5 & 0x01;//0  1  
+	if (dat){
+	printk("IP5328P TYPE-C Sink 连接成功 flag = 0x02 连接电源适配器(充电宝在充电)");
+	flag = 0x02;
 	}
 
-	if(val >> 1 & 0x01){
-	flag =0x01;
-	printk("IP5328P 在放电");
-	}
-	else
-		printk("IP5328P 未连接");
+	else {
 
-	if(val >> 5 & 0x01){
-	flag =0x02;
-	printk("IP5328P 在充电");
-	}	
-	else
-		printk("IP5328P 未连接");	
+	printk("IP5328P TYPE-C Sink 未连接 ");
+		flag = 0x00;
+	}
+
 	return flag;
 		
 }
@@ -491,39 +493,46 @@ static int IP5328P_TypeC_OK(struct IP5328P_chg *pchg)
 //		0x02输出能力1.5A
 //		0x03输出能力3.0A
 
-
-
 static int IP5328P_TypeC_Ability(struct IP5328P_chg *pchg)
 {
 
 	u8 val;
-	unsigned char	flag=0;
-	unsigned char	dat=0;
+	u8 flag=0;
+	u8 dat=0;
 	
 	IP5328P_read_byte(pchg, TYPEC_FLAG, &val);
 
 	if(val == 0xff){
-	printk("IP5328P not init as the val  = %d\n",val);
+	printk("IP5328P 0x00 芯片未激活 val  = %d\n",val);
 	return 0;
 	}
-
-	if(val & 0x07 ==0x01 ){
-	flag =0x01;
-	printk("标准 USB ");
+	
+	dat = val & 0x07;
+	
+	switch(dat){
+		
+		case 0x00 :
+			printk("TYPE-C 未激活");
+			flag = 0x00;	
+			break;
+	
+		case 0x01 :
+			printk("TYPE-C 连接的电源输出能力为 default 模式");
+			flag = 0x01;	
+			break;
+		case 0x03 :
+			printk("TYPE-C 连接的电源输出能力为 1.5A");
+			flag = 0x02;	
+			break;		
+		case 0x07 :
+			printk("TYPE-C 连接的电源输出能力为 3.0A");
+			flag = 0x03;	
+			break;
 	}
-
-	if(val & 0x07 ==0x03){
-	flag =0x02;
-	printk("输出能力1.5A");
-	}	
-
-	if(val & 0x07 ==0x07){
-	flag =0x03;
-	printk("输出能力3A");
-	}
+	
+	printk("IP5328P TYPEC_FLAG dat  = %d\n",dat);
 
 	return flag;
-
 
 }
 
@@ -666,10 +675,12 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 	ret = IP5328P_BatOCV(pchg);
 
 	ret = IP5328P_BatCurrent(pchg);
+	
 	ret = IP5328P_TypeC_OK(pchg);
 	
 	ret = IP5328P_TypeC_Ability(pchg);
-	return ret;
+	
+	return 0;
 
 }
 
@@ -716,15 +727,14 @@ static int IP5328P_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 	mutex_init(&pchg->xfer_lock);
 		
 	ret = IP5328P_SYS_Status(pchg);
-	if(ret == 0)
+	if(ret == 0xff)
 		ret = IP5328P_IC_KEY_IN(pdata);
 	
 	ret = IP5328P_init_device(pchg);//初始化设备
-	if (ret == 0) {
+	if (ret) {
 		dev_err(pchg->dev, "i2c communication err: %d", ret);
 		return ret;
 	}
-
 	return 0;
 }
 
