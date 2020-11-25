@@ -1,5 +1,5 @@
 #!/bin/sh
 git add .
-git commit -m"add the state of chager about IP5382"
+git commit -m"add the state of chager about IP5382  002 "
 git pull origin master
 git push origin master

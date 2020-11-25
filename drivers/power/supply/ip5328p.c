@@ -268,59 +268,57 @@ static int IP5328P_IC_KEY_IN(struct IP5328P_platform_data *pdata)	{
 static int IP5328P_SYS_Status(struct IP5328P_chg *pchg)
 {
 	u8 val;
-	u8 val1;
-	int ret;
-	IP5328P_read_byte(pchg, SYS_STATUS, &val);//qwb007	
-	IP5328P_read_byte(pchg, KEY_IN, &val1);//qwb007	
+	u8 dat;
+	int ret;	
+	IP5328P_read_byte(pchg, SYS_STATUS, &val);//qwb007		
+	printk("SYS_STATUS val = %x\n",val);
+	if(val == 0xff){
+		printk("SYS_STATUS 休眠状态 val     = %x\n",val);
+		return 0xff;
+		}
 	
-	if((val == 0xff) | (val1 == 0xff)){
-	printk("SYS_STATUS 休眠状态 val     = %x\n",val);
-	printk("KEY_IN 休眠状态     val1 = %x\n",val1);
-	return 0xff;
-	}
-	else
-	{
-		val1 = val1 >> 4 & 0x01;
-		if (val1 == 0x00)
-		printk("0:VIN 没电   as the val1  = %x\n",val1);
-		if (val1 == 0x01) 
-			printk("1: VIN 有电   as the val1  = %x\n",val1);
+		else{
+			dat = val >> 4 & 0x01;
+			if (dat == 0x00)
+				printk("0: VIN 没电   as the dat = %x\n",dat);
+			if (dat == 0x01) 
+				printk("1: VIN 有电   as the dat = %x\n",dat);
+			
+			dat = val &0x07;//
 		
-		val = val &0x07;//
-		
-			switch(val){
+			switch(dat){
 
 				case 0x00 :
-					printk("在待机 IP5328P_SYS_Status val	= %x\n",val);
+					printk("在待机 IP5328P_SYS_Status val	= %x\n",dat);
 					break;
 				case 0x01 :
-					printk("在5V 充电	IP5328P_SYS_Status val = %x\n",val);
+					printk("在5V 充电	IP5328P_SYS_Status val = %x\n",dat);
 					break;
 				case 0x02 :
-					printk("单口同充同放 充电	 IP5328P_SYS_Status val = %x\n",val);
+					printk("单口同充同放 充电	 IP5328P_SYS_Status val = %x\n",dat);
 					break;	
 				case 0x03 :
-					printk("多口同充同放 充电	 IP5328P_SYS_Status val = %x\n",val);
+					printk("多口同充同放 充电	 IP5328P_SYS_Status val = %x\n",dat);
 					break;			
 				case 0x04 :
-					printk("高压快充充电 充电	 IP5328P_SYS_Status val = %x\n",val);
+					printk("高压快充充电 充电	 IP5328P_SYS_Status val = %x\n",dat);
 					break;			
 				
 				case 0x05 :
-					printk("5V放电 充电  IP5328P_SYS_Status val = %x\n",val);
+					printk("5V放电 充电  IP5328P_SYS_Status val = %x\n",dat);
 					break;	
 				case 0x06 :
-					printk("多口5V放电 充电	 IP5328P_SYS_Status val = %x\n",val);
+					printk("多口5V放电 充电	 IP5328P_SYS_Status val = %x\n",dat);
 					break;
 				case 0x07 :
-					printk("高压快充放电 充电	 IP5328P_SYS_Status val = %x\n",val);
+					printk("高压快充放电 充电	 IP5328P_SYS_Status val = %x\n",dat);
 					break;
 
 					}
 	}
 
-	printk("IP5328P_SYS_Status() 执行完毕     val  = %x\n",val);
-		return val;
+	printk("IP5328P_SYS_Status() 执行完毕     val  = %x\n",dat);
+		return dat;
 
 }
 
@@ -566,16 +564,50 @@ static int IP5328P_GHG_State(struct IP5328P_chg *pchg)
 {
 
 	u8 val;
-	u8 dat;
-	u8 flag;
+	u8 dat=0;
+	u8 flag=0;
 	val = IP5328P_read_byte(pchg, CHG_STATUS, &val);
+	printk("IP5328P_read_byte val  = %x\n",val);
+	
 	if(val == 0xff){
 	printk("IP5328P not init as the val  = %x\n",val);
 	return 0;
 	}
+
+	dat = val >> 7 & 0x01;//0  1  
+		if(dat)
+			printk("IP5328P 正在充电 \n");
+		else
+			printk("IP5328P 0 没有充电 原因待确定 \n");
+
 	
+	dat = val >> 6 & 0x01;//0  1  
+		if(dat)
+			printk("IP5328P 充电已充满 \n");
+		else
+			printk("IP5328P 0 充电未充满  \n");
+		
+	dat = val >> 5 & 0x01;//0  1  
+		if(dat)
+			printk("IP5328P 恒压恒流总计时超时 \n");
+		else
+			printk("IP5328P 0 恒压恒流总计时未超时  \n");
+
+	dat = val >> 4 & 0x01;//0  1  
+		if(dat)
+			printk("IP5328P 恒压计时超时 \n");
+		else
+			printk("IP5328P 0 恒压计时未超时  \n");	
+
+	dat = val >> 3 & 0x01;//0  1  
+		if(dat)
+			printk("IP5328P 涓流计时超时 \n");
+		else
+			printk("IP5328P 0 涓流计时未超时  \n");
+		
+	val = IP5328P_read_byte(pchg, CHG_STATUS, &val);	
 	dat = val;  
-	dat = dat & 0x07;//0  1   	
+	dat = dat & 0x07;//0000 0111   	
 	switch(dat){
 		
 		case 0x00 :
@@ -608,7 +640,8 @@ static int IP5328P_GHG_State(struct IP5328P_chg *pchg)
 			break;
 
 	}
-	printk("IP5328P_GHG_State  flag = %x\n",flag);
+	printk("IP5328P_GHG_State  flag = %x\n",flag);			
+	
 	return flag;
 }
 
@@ -705,6 +738,7 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 	//判断目前是否在充电状态 充电状态可从 USB2_VBUS 状态获取，确认下这时候这部分驱动是否已经启用
 	//如果是充电状态则直接读取i2c相关数值，由于有充电行为则继续可以开机
 	//如果是非充电状态则连续2次按键（间隔70ms-80ms）然后 50ms 后读取 i2c的值 主要是电压值 以确认是否需要关机。满足开机电压则继续 开机 否则关机
+	ret = IP5328P_SYS_Status(pchg);
 
 	ret = IP5328P_Electricity(pchg);
 
@@ -724,11 +758,9 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 
 }
 
-
 /*------------------------------------------------写芯片参数功能函数-end----------------------------------------------------*/
 
 /*---------------------------------------------------获取常用参数-----------------------------------------------------------*/
-
 
 static int IP5328P_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 {	
