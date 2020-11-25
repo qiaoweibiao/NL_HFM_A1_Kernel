@@ -112,7 +112,7 @@
 #define IPMOSLOW  			0x86//多口转单口 MOS  关电流阈值设置寄存器
 #define BATOCV_LOW  		0x88//低电退出主动退出快充设置寄存器
 #define IPMOSLOW_TIME  		0x90//多口转单口时间设置寄存器
-#define QC_VMAX  			0x96// （设置 QC	协议最大输出电压
+#define QC_VMAX  			0x96//设置 QC	协议最大输出电压
 #define BATOCV_LOW_DN  		0x9F//
 
 #define DCP_DIG_CTL0  		0xA0
@@ -252,9 +252,8 @@ static int IP5328P_IC_KEY_IN(struct IP5328P_platform_data *pdata)	{
 	gpio_set_value_cansleep(pdata->B_IC_KEY, 1);//0
 	mdelay(100);
 	gpio_set_value_cansleep(pdata->B_IC_KEY, 0);//0
-	
-	printk("IC 休眠 按键 唤醒 	  as the B_IC_KEY  = %x\n",pdata->B_IC_KEY);
 	mdelay(1000);
+	printk("IC 休眠 按键 唤醒 	  as the B_IC_KEY  = %x\n",pdata->B_IC_KEY);
 	gpio_set_value_cansleep(pdata->B_IC_KEY, 1);//1
  
 }
@@ -336,22 +335,18 @@ static int IP5328P_SYS_Status(struct IP5328P_chg *pchg)
 static int IP5328P_Electricity(struct IP5328P_chg *pchg)
 {
 
-
+	u8 val;
 	u8 dat;
 	
-	IP5328P_read_byte(pchg, SYS_CTL6, &dat);
+	IP5328P_read_byte(pchg, SYS_CTL6, &val);
 
-	dat = dat | 0xE0;
-	
-	mdelay(500);
-	
+	dat = val | 0xE0;//1110 0000 
 	IP5328P_write_byte(pchg, SYS_CTL6, dat);//写为4灯模式
 	
-	printk(" qwb007 SYS_CTL6 val	= %x\n",dat);
-
-	mdelay(500);
-	IP5328P_read_byte(pchg, LED_STATUS, &dat);
-	dat = dat & 0x1F;
+	printk(" qwb007  0xE0  SYS_CTL6 dat	= %x\n",dat);
+	
+	IP5328P_read_byte(pchg, LED_STATUS, &val);
+	dat = val & 0x1F;
 
 	switch(dat){
 	
@@ -376,7 +371,7 @@ static int IP5328P_Electricity(struct IP5328P_chg *pchg)
 	
 		}
 
-	return dat;
+	return 0;
 
 }
 
@@ -545,11 +540,27 @@ static int IP5328P_KEY_IN(struct IP5328P_chg *pchg)
 {
 
 	u8 val;
-	val = IP5328P_read_byte(pchg, KEY_IN, &val);
-	if(val==0xff)
-		return 0;
-	printk("IP5328P_KEY_IN val = %x\n",val);
-	return val;
+	u8 dat;
+	dat = IP5328P_read_byte(pchg, KEY_IN, &val);
+	
+	dat = val & 0x01;//0  1  
+			if(dat == 1)
+				printk("IP5328P 按键有输入 \n");
+			else
+				printk("IP5328P 按键没有输入 \n");
+	dat = val >> 4 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P VIN 有电   \n");
+		else
+			printk("IP5328P VIN 没电 \n");
+
+	dat = val >> 5 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P VBUS 有电	 \n");
+		else
+			printk("IP5328P VBUS 没电 \n");
+
+	return 0;
 }
 
 //获取充电状态
@@ -575,32 +586,32 @@ static int IP5328P_GHG_State(struct IP5328P_chg *pchg)
 	}
 
 	dat = val >> 7 & 0x01;//0  1  
-		if(dat)
+		if(dat == 1)
 			printk("IP5328P 正在充电 \n");
 		else
 			printk("IP5328P 0 没有充电 原因待确定 \n");
 
 	
 	dat = val >> 6 & 0x01;//0  1  
-		if(dat)
+		if(dat == 1)
 			printk("IP5328P 充电已充满 \n");
 		else
 			printk("IP5328P 0 充电未充满  \n");
 		
 	dat = val >> 5 & 0x01;//0  1  
-		if(dat)
+		if(dat == 1)
 			printk("IP5328P 恒压恒流总计时超时 \n");
 		else
 			printk("IP5328P 0 恒压恒流总计时未超时  \n");
 
 	dat = val >> 4 & 0x01;//0  1  
-		if(dat)
+		if(dat == 1)
 			printk("IP5328P 恒压计时超时 \n");
 		else
 			printk("IP5328P 0 恒压计时未超时  \n");	
 
 	dat = val >> 3 & 0x01;//0  1  
-		if(dat)
+		if(dat == 1)
 			printk("IP5328P 涓流计时超时 \n");
 		else
 			printk("IP5328P 0 涓流计时未超时  \n");
@@ -657,12 +668,38 @@ static int IP5328P_BOOST(struct IP5328P_chg *pchg)
 {
 
 	u8 val;
+	u8 dat;
 	val = IP5328P_read_byte(pchg, BST_V_FLAG, &val);
-	if(val == 0xff){
-	printk("IP5328P not init as the val  = %d\n",val);
+
+	dat = val & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P 1快充 \n");
+		else
+			printk("IP5328P 0非快充 \n");
+	
+	dat = val >> 1 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P 1输出电压6-8V \n");
+		else
+			printk("IP5328P 0无效    \n");
+		
+	dat = val >> 2 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P 输出电压8-10V \n");
+		else
+			printk("IP5328P 0无效    \n");
+
+	dat = val >> 3 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P 输出电压 10V-2V     \n");
+		else
+			printk("IP5328P 0无效    \n");
+	
+	
+	printk("IP5328P_GHG_State  flag = %x\n",val);
+
+	
 	return 0;
-	}	
-	return val;
 }
 
 //获取QC快充是否使能(不是是否正在使用，而是说这个功能可以用)
@@ -679,12 +716,36 @@ static int IP5328P_QC_State(struct IP5328P_chg *pchg)
 {
 
 	u8 val;
+	u8 dat;
+	
 	val = IP5328P_read_byte(pchg, QC_EN, &val);
-	if(val == 0xff){
-	printk("IP5328P not init as the val  = %d\n",val);
+	
+	dat = val & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P VOUT1 通路输出快充使能（不括 MKT 协议)               enable \n");
+		else
+			printk("IP5328P VOUT1 通路输出快充使能（不括 MKT 协议)               disable \n");
+	
+	dat = val >> 1 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P VOUT2 通路输出快充使能（不括 MKT 协议)               enable \n");
+		else
+			printk("IP5328P VOUT2 通路输出快充使能（不括 MKT 协议)               disable \n");
+		
+	dat = val >> 2 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P VIN 通路输入快充使能 enable \n");
+		else
+			printk("IP5328P VIN 通路输入快充使能 disable \n");
+
+	dat = val >> 3 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P VBUS 通路输入输出（不括 PD 和 MKT 协议） enable \n");
+		else
+			printk("IP5328P VBUS 通路输入输出（不括 PD 和 MKT 协议） disable \n");
+		
 	return 0;
-	}	
-	return val;
+		
 }
 
 //获取快充是否可以被使用(不是是否正在使用，而是说这个功能可以用)
@@ -699,16 +760,63 @@ static int IP5328P_QC_State(struct IP5328P_chg *pchg)
 
 
 
-static int IP5328P_DCP_DIG(struct IP5328P_chg *pchg)
+static int IP5328P_DCP_DIG_CTL2(struct IP5328P_chg *pchg)
 {
 
 	u8 val;
-	val = IP5328P_read_byte(pchg, QC_EN, &val);
-	if(val == 0xff){
-	printk("IP5328P not init as the val  = %d\n",val);
+	u8 dat;
+	
+	val = IP5328P_read_byte(pchg, DCP_DIG_CTL2, &val);
+
+	dat = val & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P QC2.0 SRC 使能（输出使能）        enable \n");
+		else
+			printk("IP5328P QC2.0 SRC 使能（输出使能）        disable \n");
+	
+	dat = val >> 1 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P QC3.0 SRC 使能（输出使能）        enable \n");
+		else
+			printk("IP5328P QC3.0 SRC 使能（输出使能）        disable \n");
+		
+	dat = val >> 2 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P FCP SRC 华为 使能（输出使能） enable \n");
+		else
+			printk("IP5328P FCP SRC 华为 使能（输出使能） disable \n");
+
+	dat = val >> 3 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P AFC SRC 三星 使能（输出使能） enable \n");
+		else
+			printk("IP5328P AFC SRC 三星 使能（输出使能） disable \n");
+
+	dat = val >> 4 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P SFCP SRC 展讯 使能（输出使能） enable \n");
+		else
+			printk("IP5328P SFCP SRC 展讯 使能（输出使能） disable \n");
+		
+	dat = val >> 5 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P MTK PE1.1 RX 使能（输出使能） enable \n");
+		else
+			printk("IP5328P MTK PE1.1 RX 使能（输出使能） disable \n");
+
+	dat = val >> 6 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P MTK PE2.0 RX 使能（输出使能） enable \n");
+		else
+			printk("IP5328P MTK PE2.0 RX 使能（输出使能） disable \n");	
+		
+	dat = val >> 7 & 0x01;//0  1  
+		if(dat == 1)
+			printk("IP5328P 怀疑规格书反了 确认下 MTK PE 1.1 RX 支持的最大电压设置 12V \n");
+		else
+			printk("IP5328P 怀疑规格书反了 确认下 MTK PE 1.1 RX 支持的最大电压设置 9V \n");			
+
 	return 0;
-	}	
-	return val;
 }
 
 /*----------------------------------------------读取芯片参数功能函数-end-----------------------------------------------------*/
@@ -725,9 +833,23 @@ static int IP5328P_DCP_DIG(struct IP5328P_chg *pchg)
 static int IP5328P_BAT_LOW(struct IP5328P_chg *pchg)
 {
 
+	u8 val;
 	u8 dat;
-	if(dat==0x30||dat==0x20||dat==0x10||dat==0x00)//为保证器件不出错，确认指令正确后在写入
-	IP5328P_write_byte(pchg, VBAT_LO, dat);
+	
+	val = IP5328P_read_byte(pchg, VBAT_LO, &val);
+	printk("IP5328P  原始的    VBAT_LO = %x\n",val);
+	dat = 0x20;//设置关机电压
+	
+	if(dat==0x30||dat==0x20||dat==0x10||dat==0x00){//为保证器件不出错，确认指令正确后在写入
+
+		dat = dat | val;//0011 0000
+
+		IP5328P_write_byte(pchg, VBAT_LO, dat);
+		printk("IP5328P 设置电池低电关机电压 = %x\n",dat);
+		
+		}
+	
+	return 0;
 }
 
 
@@ -744,6 +866,8 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 
 	ret = IP5328P_BatVoltage(pchg);
 	
+	ret = IP5328P_KEY_IN(pchg);
+
 	ret = IP5328P_BatOCV(pchg);
 
 	ret = IP5328P_BatCurrent(pchg);
@@ -753,6 +877,14 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 	ret = IP5328P_TypeC_Ability(pchg);
 	
 	ret = IP5328P_GHG_State(pchg);
+	
+	ret = IP5328P_QC_State(pchg);
+
+	ret = IP5328P_DCP_DIG_CTL2(pchg);
+
+	ret = IP5328P_BAT_LOW(pchg);
+	
+	ret = IP5328P_BOOST(pchg);
 	
 	return 0;
 
