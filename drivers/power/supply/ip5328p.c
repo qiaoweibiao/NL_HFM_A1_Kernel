@@ -253,7 +253,7 @@ static int IP5328P_IC_KEY_IN(struct IP5328P_platform_data *pdata)	{
 	mdelay(100);
 	gpio_set_value_cansleep(pdata->B_IC_KEY, 0);//0
 	
-	printk("IC 休眠 按键 唤醒 	  as the B_IC_KEY  = %d\n",pdata->B_IC_KEY);
+	printk("IC 休眠 按键 唤醒 	  as the B_IC_KEY  = %x\n",pdata->B_IC_KEY);
 	mdelay(1000);
 	gpio_set_value_cansleep(pdata->B_IC_KEY, 1);//1
  
@@ -282,9 +282,9 @@ static int IP5328P_SYS_Status(struct IP5328P_chg *pchg)
 	{
 		val1 = val1 >> 4 & 0x01;
 		if (val1 == 0x00)
-		printk("0:VIN 没电   as the val1  = %d\n",val1);
+		printk("0:VIN 没电   as the val1  = %x\n",val1);
 		if (val1 == 0x01) 
-			printk("1: VIN 有电   as the val1  = %d\n",val1);
+			printk("1: VIN 有电   as the val1  = %x\n",val1);
 		
 		val = val &0x07;//
 		
@@ -503,18 +503,18 @@ static int IP5328P_TypeC_Ability(struct IP5328P_chg *pchg)
 	IP5328P_read_byte(pchg, TYPEC_FLAG, &val);
 
 	if(val == 0xff){
-	printk("IP5328P 0x00 芯片未激活 val  = %d\n",val);
+	printk("IP5328P 0x00 芯片未激活 val  = %x\n",val);
 	return 0;
 	}
 	
-	dat = val & 0x07;
+	dat = val & 0x07;// 0000 0111
 	
 	switch(dat){
 		
 		case 0x00 :
 			printk("TYPE-C 未激活");
 			flag = 0x00;	
-			break;
+			break;                                                                                                                                                  
 	
 		case 0x01 :
 			printk("TYPE-C 连接的电源输出能力为 default 模式");
@@ -530,7 +530,7 @@ static int IP5328P_TypeC_Ability(struct IP5328P_chg *pchg)
 			break;
 	}
 	
-	printk("IP5328P TYPEC_FLAG dat  = %d\n",dat);
+	printk("IP5328P TYPEC_FLAG dat  = %x\n",dat);
 
 	return flag;
 
@@ -550,7 +550,7 @@ static int IP5328P_KEY_IN(struct IP5328P_chg *pchg)
 	val = IP5328P_read_byte(pchg, KEY_IN, &val);
 	if(val==0xff)
 		return 0;
-	printk("IP5328P_KEY_IN val = %d\n",val);
+	printk("IP5328P_KEY_IN val = %x\n",val);
 	return val;
 }
 
@@ -566,12 +566,50 @@ static int IP5328P_GHG_State(struct IP5328P_chg *pchg)
 {
 
 	u8 val;
+	u8 dat;
+	u8 flag;
 	val = IP5328P_read_byte(pchg, CHG_STATUS, &val);
 	if(val == 0xff){
-	printk("IP5328P not init as the val  = %d\n",val);
+	printk("IP5328P not init as the val  = %x\n",val);
 	return 0;
 	}
-	return val;
+	
+	dat = val;  
+	dat = dat & 0x07;//0  1   	
+	switch(dat){
+		
+		case 0x00 :
+			printk("IP5328P IDLE \n");
+			flag = 0x00;	
+			break;                                                                                                                                                  
+		case 0x01 :
+			printk("IP5328P 涓流充电阶段 \n");
+			flag = 0x01;	
+			break;
+		case 0x02 :
+			printk("IP5328P 恒流充电阶段 \n");
+			flag = 0x02;	
+			break;
+		case 0x03 :
+			printk("IP5328P 恒压充电阶段 \n");
+			flag = 0x03;	
+			break;	
+		case 0x04 :
+			printk("IP5328P 停充检测 \n");
+			flag = 0x04;	
+			break;	
+		case 0x05 :
+			printk("IP5328P 电池充满结束 \n");
+			flag = 0x05;	
+			break;
+		case 0x06 :
+			printk("IP5328P Timer Out \n");
+			flag = 0x06;	
+			break;
+
+	}
+	printk("IP5328P_GHG_State  flag = %x\n",flag);
+	return flag;
 }
 
 
@@ -679,6 +717,8 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 	ret = IP5328P_TypeC_OK(pchg);
 	
 	ret = IP5328P_TypeC_Ability(pchg);
+	
+	ret = IP5328P_GHG_State(pchg);
 	
 	return 0;
 
