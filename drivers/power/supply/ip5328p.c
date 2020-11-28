@@ -1016,7 +1016,7 @@ static int IP5328P_init_device(struct IP5328P_chg *pchg)
 
 	ret = IP5328P_DCP_DIG_CTL2(pchg);
 
-	ret = IP5328P_BAT_LOW(pchg);
+	//ret = IP5328P_BAT_LOW(pchg);
 	
 	ret = IP5328P_BOOST(pchg);
 	
